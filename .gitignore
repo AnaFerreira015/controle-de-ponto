@@ -49,3 +49,8 @@ ui-debug.log
 # Arquivos temporários
 *.tmp
 *.temp
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
