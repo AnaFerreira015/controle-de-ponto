@@ -1,0 +1,14 @@
+{
+  "name": "Controle de Ponto",
+  "short_name": "Ponto",
+  "description": "Registre e acompanhe suas horas trabalhadas.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5fafa",
+  "theme_color": "#0d9488",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/favicon.ico", "sizes": "any", "type": "image/x-icon" }
+  ]
+}

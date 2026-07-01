@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId} {
+      allow read, create, update: if isOwner(userId);
+      allow delete: if false;
+
+      match /workplaces/{workplaceId} {
+        allow read, create, update: if isOwner(userId);
+        allow delete: if false;
+      }
+
+      match /timeEntries/{entryId} {
+        allow read, create, update: if isOwner(userId);
+        allow delete: if false;
+      }
+
+      // Append-only logs
+      match /timeEntryLogs/{logId} {
+        allow read, create: if isOwner(userId);
+        allow update, delete: if false;
+      }
+
+      match /dailySummaries/{summaryId} {
+        allow read, create, update: if isOwner(userId);
+        allow delete: if false;
+      }
+
+      match /monthlySummaries/{summaryId} {
+        allow read, create, update: if isOwner(userId);
+        allow delete: if false;
+      }
+
+      match /dataCleanupLogs/{cleanupLogId} {
+        allow read, create: if isOwner(userId);
+        allow update, delete: if false;
+      }
+    }
+  }
+}
