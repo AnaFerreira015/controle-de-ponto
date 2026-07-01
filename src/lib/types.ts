@@ -30,6 +30,8 @@ export interface Workplace {
   name: string;
   description: string;
   active: boolean;
+  isDeleted?: boolean;
+  deletedAt?: number | null;
   createdAt: number;
   updatedAt: number;
 }

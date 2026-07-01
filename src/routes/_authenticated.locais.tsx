@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,15 +8,25 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth-context";
 import { useAppData } from "@/lib/app-data-context";
-import { createWorkplace, updateWorkplace } from "@/lib/firestore-service";
+import { createWorkplace, deleteWorkplace, updateWorkplace } from "@/lib/firestore-service";
 import type { Workplace } from "@/lib/types";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/locais")({
   head: () => ({
-    meta: [{ title: "Locais — Controle de Ponto" }],
+    meta: [{ title: "Locais - Controle de Ponto" }],
   }),
   component: LocaisPage,
 });
@@ -25,11 +35,28 @@ function LocaisPage() {
   const { user } = useAuth();
   const { workplaces } = useAppData();
   const [editing, setEditing] = useState<Workplace | null>(null);
+  const [deleting, setDeleting] = useState<Workplace | null>(null);
   const [creating, setCreating] = useState(false);
+
+  const visibleWorkplaces = useMemo(
+    () => workplaces.filter((w) => !w.isDeleted),
+    [workplaces],
+  );
+
+  async function confirmDelete() {
+    if (!user || !deleting) return;
+    try {
+      await deleteWorkplace(user.uid, deleting.id);
+      toast.success("Local excluído");
+      setDeleting(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao excluir local");
+    }
+  }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Locais de trabalho</h1>
           <p className="text-muted-foreground text-sm">Cadastre um ou mais locais onde você bate ponto.</p>
@@ -37,7 +64,7 @@ function LocaisPage() {
         <Button onClick={() => setCreating(true)}><Plus className="h-4 w-4 mr-1" />Novo</Button>
       </div>
 
-      {workplaces.length === 0 ? (
+      {visibleWorkplaces.length === 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>Nenhum local cadastrado</CardTitle>
@@ -46,19 +73,24 @@ function LocaisPage() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {workplaces.map((w) => (
+          {visibleWorkplaces.map((w) => (
             <Card key={w.id}>
-              <CardContent className="flex items-center justify-between p-4">
-                <div>
+              <CardContent className="flex items-center justify-between gap-3 p-4">
+                <div className="min-w-0">
                   <div className="font-medium flex items-center gap-2">
                     {w.name}
                     {!w.active && <span className="text-xs text-muted-foreground">(inativo)</span>}
                   </div>
-                  {w.description && <div className="text-sm text-muted-foreground">{w.description}</div>}
+                  {w.description && <div className="text-sm text-muted-foreground truncate">{w.description}</div>}
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setEditing(w)}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button variant="ghost" size="icon" onClick={() => setEditing(w)} aria-label={`Editar ${w.name}`}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => setDeleting(w)} aria-label={`Excluir ${w.name}`}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -86,6 +118,21 @@ function LocaisPage() {
           setEditing(null);
         }}
       />
+
+      <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir local de trabalho?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O local “{deleting?.name}” será removido da lista de locais disponíveis. Registros antigos continuarão preservados no histórico.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Excluir local</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { getDb } from "./firebase";
+import { sanitizeDisplayName, looksLikeEmail } from "./user-display";
 import type {
   DataCleanupLog,
   EntryType,
@@ -31,10 +32,19 @@ export async function getOrCreateProfile(
 ): Promise<UserProfile> {
   const ref = doc(getDb(), "users", uid);
   const snap = await getDoc(ref);
-  if (snap.exists()) return snap.data() as UserProfile;
+  const cleanedName = sanitizeDisplayName(name);
   const now = Date.now();
+  if (snap.exists()) {
+    const profile = snap.data() as UserProfile;
+    if (cleanedName && (!profile.name || looksLikeEmail(profile.name))) {
+      const updatedProfile = { ...profile, name: cleanedName, updatedAt: now };
+      await updateDoc(ref, { name: cleanedName, updatedAt: now });
+      return updatedProfile;
+    }
+    return profile;
+  }
   const profile: UserProfile = {
-    name,
+    name: cleanedName,
     email,
     mainWorkplaceId: null,
     dailyExpectedHours: 8,
@@ -80,6 +90,8 @@ export async function createWorkplace(
     name: data.name,
     description: data.description,
     active: true,
+    isDeleted: false,
+    deletedAt: null,
     createdAt: now,
     updatedAt: now,
   });
@@ -95,6 +107,31 @@ export async function updateWorkplace(
     ...patch,
     updatedAt: Date.now(),
   });
+}
+
+export async function deleteWorkplace(uid: string, id: string): Promise<void> {
+  const db = getDb();
+  const now = Date.now();
+  const profileRef = doc(db, "users", uid);
+  const workplaceRef = doc(db, "users", uid, "workplaces", id);
+  const profileSnap = await getDoc(profileRef);
+  const batch = writeBatch(db);
+
+  batch.update(workplaceRef, {
+    active: false,
+    isDeleted: true,
+    deletedAt: now,
+    updatedAt: now,
+  });
+
+  if (profileSnap.exists() && (profileSnap.data() as UserProfile).mainWorkplaceId === id) {
+    batch.update(profileRef, {
+      mainWorkplaceId: null,
+      updatedAt: now,
+    });
+  }
+
+  await batch.commit();
 }
 
 // ----- Time entries -----

@@ -30,11 +30,12 @@ import {
 } from "@/lib/time-utils";
 import { ENTRY_TYPE_LABELS, type EntryType } from "@/lib/types";
 import { Link } from "@tanstack/react-router";
+import { getFirstName } from "@/lib/user-display";
 
 export const Route = createFileRoute("/_authenticated/app")({
   head: () => ({
     meta: [
-      { title: "Bater ponto — Controle de Ponto" },
+      { title: "Bater ponto - Controle de Ponto" },
       { name: "description", content: "Registre entradas, pausas e saídas rapidamente." },
     ],
   }),
@@ -81,12 +82,13 @@ function AppMain() {
       if (profile?.mainWorkplaceId) setWorkplaceId(profile.mainWorkplaceId);
       else if (workplaces[0]) setWorkplaceId(workplaces[0].id);
     }
+
   }, [profile, workplaces, workplaceId]);
 
   const expectedMin = (profile?.dailyExpectedHours ?? 8) * 60;
   const dayDiff = dayCalc.minutes - expectedMin;
 
-  const activeWorkplaces = workplaces.filter((w) => w.active);
+  const activeWorkplaces = workplaces.filter((w) => w.active && !w.isDeleted);
   const hasWorkplace = activeWorkplaces.length > 0;
 
   async function register(force = false) {
@@ -123,10 +125,12 @@ function AppMain() {
 
   const greeting = getGreeting();
 
+  const firstName = getFirstName(profile, user, "por aqui");
+
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold">{greeting}, {profile?.name?.split(" ")[0] || "por aqui"}</h1>
+        <h1 className="text-2xl font-semibold">{greeting}, {firstName}</h1>
         <p className="text-muted-foreground text-sm">
           {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
         </p>
@@ -184,7 +188,7 @@ function AppMain() {
               onClick={() => register(false)}
               disabled={busy || !workplaceId}
             >
-              Bater ponto — {ENTRY_TYPE_LABELS[entryType]}
+              Bater ponto - {ENTRY_TYPE_LABELS[entryType]}
             </Button>
           </CardContent>
         </Card>

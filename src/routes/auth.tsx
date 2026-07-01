@@ -12,7 +12,7 @@ import { Clock } from "lucide-react";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Entrar — Controle de Ponto" },
+      { title: "Entrar - Controle de Ponto" },
       { name: "description", content: "Acesse sua conta ou crie uma nova para começar a bater ponto." },
     ],
   }),

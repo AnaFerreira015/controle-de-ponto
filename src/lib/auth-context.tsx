@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async signUp(name, email, password) {
         const cred = await createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
         if (name) await fbUpdateProfile(cred.user, { displayName: name });
-        await getOrCreateProfile(cred.user.uid, email, name || email);
+        await getOrCreateProfile(cred.user.uid, email, name);
       },
       async logout() {
         await signOut(getFirebaseAuth());

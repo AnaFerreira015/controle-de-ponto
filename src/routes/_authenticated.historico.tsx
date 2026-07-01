@@ -26,7 +26,7 @@ import { ChevronLeft, ChevronRight, Download, Pencil, Trash2 } from "lucide-reac
 
 export const Route = createFileRoute("/_authenticated/historico")({
   head: () => ({
-    meta: [{ title: "Histórico — Controle de Ponto" }],
+    meta: [{ title: "Histórico - Controle de Ponto" }],
   }),
   component: HistoricoPage,
 });

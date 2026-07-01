@@ -13,10 +13,11 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useAppData } from "@/lib/app-data-context";
 import { cleanupEntriesBefore, updateProfile } from "@/lib/firestore-service";
+import { sanitizeDisplayName } from "@/lib/user-display";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({
-    meta: [{ title: "Configurações — Controle de Ponto" }],
+    meta: [{ title: "Configurações - Controle de Ponto" }],
   }),
   component: SettingsPage,
 });
@@ -33,7 +34,7 @@ function SettingsPage() {
 
   useEffect(() => {
     if (profile) {
-      setName(profile.name);
+      setName(sanitizeDisplayName(profile.name));
       setExpected(profile.dailyExpectedHours);
       setRetention(profile.dataRetentionMonths);
       setMainId(profile.mainWorkplaceId ?? "");
@@ -112,7 +113,9 @@ function SettingsPage() {
               <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">Nenhum</SelectItem>
-                {workplaces.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
+                {workplaces
+                  .filter((w) => !w.isDeleted)
+                  .map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

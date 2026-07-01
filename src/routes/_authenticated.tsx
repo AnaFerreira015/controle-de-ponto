@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Clock, History, MapPin, Settings, LogOut, Sun, Moon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { getOrCreateProfile } from "@/lib/firestore-service";
+import { getDisplayName } from "@/lib/user-display";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -16,8 +17,8 @@ function AuthenticatedLayout() {
 
   useEffect(() => {
     if (user) {
-      getOrCreateProfile(user.uid, user.email ?? "", user.displayName ?? user.email ?? "").catch(
-        (e) => console.error(e),
+      getOrCreateProfile(user.uid, user.email ?? "", user.displayName ?? "").catch((e) =>
+        console.error(e),
       );
     }
   }, [user]);
@@ -40,6 +41,7 @@ function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => Pr
   const location = useLocation();
   const navigate = useNavigate();
   const { profile } = useAppData();
+  const { user } = useAuth();
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
@@ -66,6 +68,8 @@ function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => Pr
     }
   }
 
+  const displayName = getDisplayName(profile, user, "Usuário");
+
   const items = [
     { to: "/app", label: "Ponto", icon: Clock },
     { to: "/historico", label: "Histórico", icon: History },
@@ -82,8 +86,8 @@ function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => Pr
             <span className="font-semibold">Controle de Ponto</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="hidden sm:inline text-sm text-muted-foreground mr-2">
-              {profile?.name ?? ""}
+            <span className="max-w-[8rem] truncate text-sm text-muted-foreground mr-1 sm:max-w-[12rem] sm:mr-2">
+              {displayName}
             </span>
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Alternar tema">
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
