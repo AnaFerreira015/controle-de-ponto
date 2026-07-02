@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Clock, ShieldCheck, Sparkles, BarChart3 } from "lucide-react";
+import { Clock, ShieldCheck, Sparkles, BarChart3, Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -27,6 +27,9 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   if (loading) {
     return (
@@ -40,15 +43,36 @@ function AuthPage() {
   }
   if (user) return <Navigate to="/app" replace />;
 
+  const isLoginFormValid =
+    email.trim().length > 0 &&
+    password.length >= 6;
+
+  const isSignupFormValid =
+    name.trim().length > 0 &&
+    email.trim().length > 0 &&
+    password.length >= 6 &&
+    confirmPassword.length >= 6 &&
+    password === confirmPassword;
+
+  const canSubmit = tab === "login" ? isLoginFormValid : isSignupFormValid;
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+
+    if (tab === "signup" && password !== confirmPassword) {
+      toast.error("As senhas não conferem.");
+      return;
+    }
+
     setBusy(true);
+
     try {
       if (tab === "login") {
         await signIn(email, password);
       } else {
         await signUp(name, email, password);
       }
+
       navigate({ to: "/app" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Falha na autenticação");
@@ -171,21 +195,70 @@ function AuthPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Senha</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    autoComplete={tab === "login" ? "current-password" : "new-password"}
-                    placeholder="Mínimo de 6 caracteres"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
+
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete={tab === "login" ? "current-password" : "new-password"}
+                      placeholder="Mínimo de 6 caracteres"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      className="pr-10"
+                    />
+
+                    <button
+                      type="button"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowPassword((value) => !value)}
+                      aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
+                {tab === "signup" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirmar senha</Label>
+
+                    <div className="relative">
+                      <Input
+                        id="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        autoComplete="new-password"
+                        placeholder="Digite a senha novamente"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        minLength={6}
+                        className="pr-10"
+                      />
+
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowConfirmPassword((value) => !value)}
+                        aria-label={showConfirmPassword ? "Ocultar confirmação de senha" : "Mostrar confirmação de senha"}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <Button
                   type="submit"
                   className="w-full h-11 text-base font-semibold bg-gradient-primary shadow-glow-primary hover:opacity-95"
-                  disabled={busy || !configured}
+                  disabled={busy || !configured || !canSubmit}
                 >
                   {busy ? "Aguarde…" : tab === "login" ? "Entrar" : "Criar conta"}
                 </Button>
