@@ -21,6 +21,13 @@ export interface UserProfile {
   mainWorkplaceId: string | null;
   dailyExpectedHours: number; // horas esperadas por dia
   dataRetentionMonths: number;
+  workStartTime?: string; // HH:mm
+  lunchStartTime?: string; // HH:mm
+  lunchEndTime?: string; // HH:mm
+  workEndTime?: string; // HH:mm
+  notificationsEnabled?: boolean;
+  notificationLeadMinutes?: number;
+  pushNotificationsEnabled?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -40,12 +47,14 @@ export interface TimeEntry {
   id: string;
   workplaceId: string;
   entryType: EntryType;
-  entryDatetime: number; // ms epoch
+  entryDatetime: number; // ms epoch do horário real do ponto
   originalEntryDatetime: number;
   notes: string;
   isEdited: boolean;
   isDeleted: boolean;
-  createdAt: number;
+  createdWithDelay?: boolean;
+  delayReason?: string;
+  createdAt: number; // ms epoch de quando o registro foi feito no app
   updatedAt: number;
 }
 
@@ -67,4 +76,15 @@ export interface DataCleanupLog {
   affectedRecordsCount: number;
   cleanupType: string;
   createdAt: number;
+}
+
+export interface NotificationToken {
+  id: string;
+  token: string;
+  platform: "web";
+  userAgent: string;
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
+  lastSeenAt: number;
 }

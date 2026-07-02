@@ -45,18 +45,36 @@ VITE_FIREBASE_PROJECT_ID=...
 VITE_FIREBASE_STORAGE_BUCKET=...
 VITE_FIREBASE_MESSAGING_SENDER_ID=...
 VITE_FIREBASE_APP_ID=...
+VITE_FIREBASE_VAPID_KEY=...
 ```
 
 Essas chaves são usadas pelo frontend. A proteção dos dados deve ser feita pelas regras do Firestore.
 
-## 7. Autorizar domínios
+## 7. Configurar Firebase Cloud Messaging para push real
+
+Para notificação push/offline real no navegador:
+
+1. No Firebase Console, acesse **Project settings → Cloud Messaging**.
+2. Em **Web Push certificates**, gere ou copie uma chave **Web Push certificate / VAPID key**.
+3. Cole esse valor em `VITE_FIREBASE_VAPID_KEY` no `.env` local e nas variáveis do ambiente de deploy.
+4. Publique novamente as regras de `firestore.rules`, porque o app usa a subcoleção `notificationTokens`.
+
+O app registra o service worker `/firebase-messaging-sw.js`, solicita permissão do navegador, gera o token FCM do dispositivo e salva esse token em:
+
+```txt
+users/{uid}/notificationTokens/{tokenId}
+```
+
+O service worker exibe notificações recebidas em segundo plano. Para disparar lembretes automaticamente quando o app estiver fechado, é necessário um backend/agendador externo que leia os tokens e envie mensagens via FCM.
+
+## 8. Autorizar domínios
 
 Em **Authentication → Settings → Authorized domains**, adicione os domínios onde o app será executado, por exemplo:
 
 - `localhost`, para desenvolvimento local
 - domínio do seu deploy, como Vercel, Netlify, Firebase Hosting ou domínio próprio
 
-## 8. Rodar localmente
+## 9. Rodar localmente
 
 ```bash
 npm install

@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,12 +18,14 @@ import {
   formatDate,
   formatMinutes,
   formatTime,
+  getDayPointStatus,
+  getEntryStatus,
   startOfDay,
   ym,
   ymd,
 } from "@/lib/time-utils";
 import { ENTRY_TYPE_LABELS, type EntryType, type TimeEntry } from "@/lib/types";
-import { ChevronLeft, ChevronRight, Download, Pencil, Trash2 } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Download, Pencil, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/historico")({
   head: () => ({
@@ -32,12 +35,30 @@ export const Route = createFileRoute("/_authenticated/historico")({
 });
 
 function HistoricoPage() {
-  const { workplaces, entries, viewMonth, setViewMonth } = useAppData();
+  const { profile, workplaces, entries, entryMonthKeys, viewMonth, setViewMonth } = useAppData();
   const [editing, setEditing] = useState<TimeEntry | null>(null);
 
   const workplaceNames = useMemo(
     () => Object.fromEntries(workplaces.map((w) => [w.id, w.name])),
     [workplaces],
+  );
+
+  const availableMonths = useMemo(() => [...entryMonthKeys].sort(), [entryMonthKeys]);
+  const currentMonthKey = ym(new Date());
+  const viewMonthKey = ym(viewMonth);
+  const availableOrCurrentMonths = useMemo(() => {
+    const values = new Set(availableMonths);
+    values.add(currentMonthKey);
+    return Array.from(values).sort();
+  }, [availableMonths, currentMonthKey]);
+
+  const previousMonthKey = useMemo(
+    () => [...availableMonths].reverse().find((key) => key < viewMonthKey) ?? null,
+    [availableMonths, viewMonthKey],
+  );
+  const nextMonthKey = useMemo(
+    () => availableMonths.find((key) => key > viewMonthKey) ?? null,
+    [availableMonths, viewMonthKey],
   );
 
   const days = useMemo(() => {
@@ -52,10 +73,17 @@ function HistoricoPage() {
 
   const monthTotal = calculateWorkedMinutes(entries);
 
-  function shift(delta: number) {
-    const d = new Date(viewMonth);
-    d.setMonth(d.getMonth() + delta);
-    setViewMonth(d);
+  function setMonthFromKey(monthKey: string) {
+    setViewMonth(dateFromMonthKey(monthKey));
+  }
+
+  function selectMonth(monthKey: string) {
+    if (!monthKey) return;
+    if (monthKey !== currentMonthKey && !availableMonths.includes(monthKey)) {
+      toast.info("Não há registros nesse mês. O histórico mantém apenas meses com dados ou o mês atual.");
+      return;
+    }
+    setMonthFromKey(monthKey);
   }
 
   function exportCsv() {
@@ -71,17 +99,57 @@ function HistoricoPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => shift(-1)}><ChevronLeft className="h-4 w-4" /></Button>
-          <h1 className="text-xl font-semibold min-w-[9ch] text-center">
-            {viewMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
-          </h1>
-          <Button variant="outline" size="icon" onClick={() => shift(1)}><ChevronRight className="h-4 w-4" /></Button>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => previousMonthKey && setMonthFromKey(previousMonthKey)}
+              disabled={!previousMonthKey}
+              aria-label="Ir para o mês anterior com registros"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <h1 className="text-xl font-semibold min-w-[9ch] text-center capitalize">
+              {viewMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+            </h1>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => nextMonthKey && setMonthFromKey(nextMonthKey)}
+              disabled={!nextMonthKey}
+              aria-label="Ir para o próximo mês com registros"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button variant="outline" onClick={exportCsv} disabled={!entries.length}>
+            <Download className="h-4 w-4 mr-1" />CSV
+          </Button>
         </div>
-        <Button variant="outline" onClick={exportCsv} disabled={!entries.length}>
-          <Download className="h-4 w-4 mr-1" />CSV
-        </Button>
+
+        <div className="flex flex-col gap-2 rounded-md border border-border p-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="space-y-1">
+            <Label htmlFor="history-month" className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" />
+              Escolher mês
+            </Label>
+            <Input
+              id="history-month"
+              type="month"
+              value={viewMonthKey}
+              list="history-months"
+              onChange={(e) => selectMonth(e.target.value)}
+              className="w-full sm:w-[13rem]"
+            />
+            <datalist id="history-months">
+              {availableOrCurrentMonths.map((monthKey) => (
+                <option key={monthKey} value={monthKey} />
+              ))}
+            </datalist>
+          </div>
+        </div>
       </div>
 
       <Card>
@@ -97,11 +165,15 @@ function HistoricoPage() {
         days.map(([key, list]) => {
           const dayCalc = calculateWorkedMinutes(list);
           const date = new Date(list[0].entryDatetime);
+          const dayStatus = getDayPointStatus(profile, list, date);
           return (
             <Card key={key}>
               <CardHeader className="pb-2">
-                <CardTitle className="flex justify-between items-baseline text-base">
-                  <span>{date.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" })}</span>
+                <CardTitle className="flex justify-between items-start gap-3 text-base">
+                  <div className="space-y-1">
+                    <span>{date.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" })}</span>
+                    <div><Badge variant={dayStatus.variant}>{dayStatus.label}</Badge></div>
+                  </div>
                   <span className="text-primary">{formatMinutes(dayCalc.minutes)}</span>
                 </CardTitle>
               </CardHeader>
@@ -109,21 +181,26 @@ function HistoricoPage() {
                 {list
                   .filter((e) => !e.isDeleted)
                   .sort((a, b) => a.entryDatetime - b.entryDatetime)
-                  .map((e) => (
-                    <div key={e.id} className="flex items-center justify-between text-sm py-1 border-b border-border last:border-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono w-12">{formatTime(e.entryDatetime)}</span>
-                        <span>{ENTRY_TYPE_LABELS[e.entryType]}</span>
-                        {e.isEdited && <span className="text-xs text-muted-foreground">(editado)</span>}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground truncate max-w-[8rem]">{workplaceNames[e.workplaceId] ?? ""}</span>
-                        <Button variant="ghost" size="icon" onClick={() => setEditing(e)}>
+                  .map((e) => {
+                    const status = getEntryStatus(e);
+                    return (
+                      <div key={e.id} className="flex items-start justify-between gap-3 text-sm py-2 border-b border-border last:border-0">
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono w-[5.5rem]">{formatTime(e.entryDatetime)}</span>
+                            <span>{ENTRY_TYPE_LABELS[e.entryType]}</span>
+                            <Badge variant={status.variant}>{status.label}</Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground">{workplaceNames[e.workplaceId] ?? ""}</div>
+                          {e.notes && <div className="text-xs text-muted-foreground">Obs.: {e.notes}</div>}
+                          {e.delayReason && <div className="text-xs text-muted-foreground">Motivo do atraso: {e.delayReason}</div>}
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => setEditing(e)} aria-label="Editar ponto">
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
               </CardContent>
             </Card>
           );
@@ -143,20 +220,17 @@ function EditEntryDialog({ entry, onClose }: { entry: TimeEntry | null; onClose:
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    if (!entry) return;
+    const d = new Date(entry.entryDatetime);
+    setTime(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`);
+    setType(entry.entryType);
+    setNotes(entry.notes ?? "");
+    setReason("");
+  }, [entry]);
+
   return (
-    <Dialog
-      open={!!entry}
-      onOpenChange={(o) => {
-        if (!o) onClose();
-        else if (entry) {
-          const d = new Date(entry.entryDatetime);
-          setTime(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
-          setType(entry.entryType);
-          setNotes(entry.notes);
-          setReason("");
-        }
-      }}
-    >
+    <Dialog open={!!entry} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Editar ponto</DialogTitle>
@@ -167,7 +241,7 @@ function EditEntryDialog({ entry, onClose }: { entry: TimeEntry | null; onClose:
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Hora</Label>
-                <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+                <Input type="time" step={1} value={time} onChange={(e) => setTime(e.target.value)} />
               </div>
               <div className="space-y-1">
                 <Label>Tipo</Label>
@@ -218,9 +292,9 @@ function EditEntryDialog({ entry, onClose }: { entry: TimeEntry | null; onClose:
               disabled={!entry || !user || !reason.trim() || busy}
               onClick={async () => {
                 if (!user || !entry) return;
-                const [h, m] = time.split(":").map((x) => parseInt(x, 10));
+                const [h, m, sec] = time.split(":").map((x) => parseInt(x, 10));
                 const d = startOfDay(new Date(entry.entryDatetime));
-                d.setHours(h || 0, m || 0, 0, 0);
+                d.setHours(h || 0, m || 0, sec || 0, 0);
                 setBusy(true);
                 try {
                   await editTimeEntry(user.uid, entry, {
@@ -244,4 +318,10 @@ function EditEntryDialog({ entry, onClose }: { entry: TimeEntry | null; onClose:
       </DialogContent>
     </Dialog>
   );
+}
+
+function dateFromMonthKey(monthKey: string): Date {
+  const [year, month] = monthKey.split("-").map((value) => parseInt(value, 10));
+  if (!Number.isFinite(year) || !Number.isFinite(month)) return new Date();
+  return new Date(year, month - 1, 1, 0, 0, 0, 0);
 }

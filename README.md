@@ -42,3 +42,20 @@ git push -u origin main
 - O arquivo `.env` não deve ser commitado.
 - Use `.env.example` como modelo para novas instalações.
 - As regras do Firestore estão em `firestore.rules`.
+
+## Histórico
+
+- A tela `/historico` exibe o mês atual por padrão.
+- As setas de navegação só ficam habilitadas quando existe algum registro em um mês anterior ou posterior.
+- O seletor de mês permite abrir o calendário/seletor nativo do navegador e escolher o mês atual ou meses com registros.
+
+## Notificações
+
+O app tem dois níveis de notificação:
+
+1. **Lembrete local:** funciona enquanto o app está aberto ou enquanto o navegador permitir execução em segundo plano.
+2. **Push/offline real:** usa Firebase Cloud Messaging e um service worker para receber mensagens mesmo com o app fechado, quando o navegador/sistema operacional permitir.
+
+Para ativar push/offline real, configure `VITE_FIREBASE_VAPID_KEY` no `.env` e publique as regras atualizadas do Firestore. O app salva o token do dispositivo em `users/{uid}/notificationTokens`.
+
+Importante: para enviar lembretes automáticos com o app fechado, ainda é necessário um backend/agendador externo que envie mensagens FCM para os tokens salvos. O frontend já faz a inscrição do dispositivo e recebe mensagens em foreground/background.

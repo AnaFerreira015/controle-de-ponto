@@ -1,4 +1,4 @@
-import type { EntryType, TimeEntry } from "./types";
+import type { EntryType, TimeEntry, UserProfile } from "./types";
 
 export function startOfDay(d: Date): Date {
   const x = new Date(d);
@@ -27,7 +27,7 @@ export function ym(d: Date): string {
 
 export function formatTime(ms: number): string {
   const d = new Date(ms);
-  return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 export function formatDate(ms: number): string {
@@ -41,6 +41,7 @@ export function formatDateTime(ms: number): string {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
   });
 }
 
@@ -50,6 +51,17 @@ export function formatMinutes(mins: number): string {
   const h = Math.floor(abs / 60);
   const m = abs % 60;
   return `${sign}${h}h${String(m).padStart(2, "0")}`;
+}
+
+export function formatDatetimeLocal(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
+}
+
+export function parseDatetimeLocal(value: string): number | null {
+  if (!value) return null;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : null;
 }
 
 /**
@@ -148,15 +160,125 @@ export function getLastEntryType(entries: TimeEntry[]): EntryType | null {
   return list.length ? list[list.length - 1].entryType : null;
 }
 
+export interface ExpectedPoint {
+  entryType: EntryType;
+  time: number;
+  label: string;
+}
+
+const DEFAULT_WORK_START = "08:00";
+const DEFAULT_LUNCH_START = "12:00";
+const DEFAULT_LUNCH_END = "13:00";
+const DEFAULT_WORK_END = "17:00";
+
+function parseClock(value: string | undefined, fallback: string): { hours: number; minutes: number } {
+  const raw = value || fallback;
+  const [h, m] = raw.split(":").map((x) => parseInt(x, 10));
+  return {
+    hours: Number.isFinite(h) ? h : 0,
+    minutes: Number.isFinite(m) ? m : 0,
+  };
+}
+
+function timeOnDate(date: Date, value: string | undefined, fallback: string): number {
+  const { hours, minutes } = parseClock(value, fallback);
+  const d = startOfDay(date);
+  d.setHours(hours, minutes, 0, 0);
+  return d.getTime();
+}
+
+export function getExpectedPoints(profile: UserProfile | null | undefined, date: Date): ExpectedPoint[] {
+  const start = timeOnDate(date, profile?.workStartTime, DEFAULT_WORK_START);
+  const lunchStart = timeOnDate(date, profile?.lunchStartTime, DEFAULT_LUNCH_START);
+  const lunchEnd = timeOnDate(date, profile?.lunchEndTime, DEFAULT_LUNCH_END);
+  let end = timeOnDate(date, profile?.workEndTime, DEFAULT_WORK_END);
+
+  if (!profile?.workEndTime) {
+    const expectedWorkMinutes = Math.round((profile?.dailyExpectedHours ?? 8) * 60);
+    const lunchMinutes = Math.max(0, (lunchEnd - lunchStart) / 60000);
+    end = start + (expectedWorkMinutes + lunchMinutes) * 60000;
+  }
+
+  return [
+    { entryType: "entrada", time: start, label: "Entrada" },
+    { entryType: "saida_almoco", time: lunchStart, label: "Saída para almoço" },
+    { entryType: "volta_almoco", time: lunchEnd, label: "Volta do almoço" },
+    { entryType: "saida", time: end, label: "Saída" },
+  ].sort((a, b) => a.time - b.time);
+}
+
+function hasEntryOfType(entries: TimeEntry[], type: EntryType): boolean {
+  return activeEntries(entries).some((e) => e.entryType === type);
+}
+
+export function getMissingExpectedPoints(
+  profile: UserProfile | null | undefined,
+  entries: TimeEntry[],
+  date: Date,
+  now: number = Date.now(),
+): ExpectedPoint[] {
+  return getExpectedPoints(profile, date)
+    .filter((point) => point.time <= now)
+    .filter((point) => !hasEntryOfType(entries, point.entryType));
+}
+
+export function getDuePointReminder(
+  profile: UserProfile | null | undefined,
+  entries: TimeEntry[],
+  now: number = Date.now(),
+): ExpectedPoint | null {
+  if (!profile?.notificationsEnabled) return null;
+  const leadMs = Math.max(0, profile.notificationLeadMinutes ?? 0) * 60000;
+  return getExpectedPoints(profile, new Date(now)).find((point) => {
+    const isDue = now + leadMs >= point.time;
+    return isDue && !hasEntryOfType(entries, point.entryType);
+  }) ?? null;
+}
+
+export function getEntryStatus(entry: TimeEntry): { label: string; variant: "default" | "secondary" | "destructive" | "outline" } {
+  if (entry.isDeleted) return { label: "Excluído", variant: "destructive" };
+  if (entry.createdWithDelay || entry.createdAt - entry.entryDatetime > 60_000) {
+    return { label: "Registrado com atraso", variant: "outline" };
+  }
+  if (entry.isEdited) return { label: "Editado", variant: "secondary" };
+  return { label: "No horário", variant: "secondary" };
+}
+
+export function getDayPointStatus(
+  profile: UserProfile | null | undefined,
+  entries: TimeEntry[],
+  date: Date,
+  now: number = Date.now(),
+): { label: string; variant: "default" | "secondary" | "destructive" | "outline" } {
+  const dayStart = startOfDay(date).getTime();
+  const todayStart = startOfDay(new Date(now)).getTime();
+  const isPastDay = dayStart < todayStart;
+  const list = activeEntries(entries);
+  const calc = calculateWorkedMinutes(list, now);
+  const missing = getMissingExpectedPoints(profile, list, date, now);
+
+  if (isPastDay && (missing.length > 0 || calc.isOpen)) {
+    return { label: "Ponto atrasado/incompleto", variant: "destructive" };
+  }
+  if (missing.length > 0) {
+    return { label: `Pendente: ${missing[0].label}`, variant: "outline" };
+  }
+  if (calc.isOpen) {
+    return { label: "Em andamento", variant: "default" };
+  }
+  return { label: "Completo", variant: "secondary" };
+}
+
 export function entriesToCsv(entries: TimeEntry[], workplaceNames: Record<string, string>): string {
-  const header = ["data", "hora", "tipo", "local", "editado", "observacao"];
+  const header = ["data", "hora", "tipo", "local", "status", "editado", "observacao"];
   const rows = activeEntries(entries).map((e) => {
     const d = new Date(e.entryDatetime);
     return [
       d.toLocaleDateString("pt-BR"),
-      d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
       e.entryType,
       workplaceNames[e.workplaceId] ?? e.workplaceId,
+      getEntryStatus(e).label,
       e.isEdited ? "sim" : "nao",
       (e.notes ?? "").replaceAll("\n", " ").replaceAll(";", ","),
     ].join(";");

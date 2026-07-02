@@ -1,6 +1,7 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
+import { getMessaging, isSupported, type Messaging } from "firebase/messaging";
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string,
@@ -11,6 +12,8 @@ const config = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID as string,
 };
 
+export const firebaseVapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY as string | undefined;
+
 export const isFirebaseConfigured = Boolean(
   config.apiKey && config.authDomain && config.projectId && config.appId,
 );
@@ -18,6 +21,8 @@ export const isFirebaseConfigured = Boolean(
 let app: FirebaseApp | null = null;
 let authInstance: Auth | null = null;
 let dbInstance: Firestore | null = null;
+let messagingInstance: Messaging | null = null;
+let messagingSupport: Promise<boolean> | null = null;
 
 function ensureApp(): FirebaseApp {
   if (!isFirebaseConfigured) {
@@ -39,4 +44,23 @@ export function getFirebaseAuth(): Auth {
 export function getDb(): Firestore {
   if (!dbInstance) dbInstance = getFirestore(ensureApp());
   return dbInstance;
+}
+
+export function getFirebaseClientConfig() {
+  return { ...config };
+}
+
+export async function isFirebaseMessagingSupported(): Promise<boolean> {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  if (!("serviceWorker" in navigator) || !("Notification" in window)) return false;
+  if (!messagingSupport) {
+    messagingSupport = isSupported().catch(() => false);
+  }
+  return messagingSupport;
+}
+
+export async function getFirebaseMessaging(): Promise<Messaging | null> {
+  if (!(await isFirebaseMessagingSupported())) return null;
+  if (!messagingInstance) messagingInstance = getMessaging(ensureApp());
+  return messagingInstance;
 }

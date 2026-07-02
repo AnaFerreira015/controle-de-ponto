@@ -24,6 +24,23 @@ import type {
   Workplace,
 } from "./types";
 
+const DEFAULT_PROFILE_SETTINGS = {
+  dailyExpectedHours: 8,
+  dataRetentionMonths: 12,
+  workStartTime: "08:00",
+  lunchStartTime: "12:00",
+  lunchEndTime: "13:00",
+  workEndTime: "17:00",
+  notificationsEnabled: false,
+  notificationLeadMinutes: 0,
+  pushNotificationsEnabled: false,
+};
+
+function monthKeyFromMs(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 // ----- User profile -----
 export async function getOrCreateProfile(
   uid: string,
@@ -36,9 +53,24 @@ export async function getOrCreateProfile(
   const now = Date.now();
   if (snap.exists()) {
     const profile = snap.data() as UserProfile;
+    const patch: Partial<UserProfile> = {};
+
     if (cleanedName && (!profile.name || looksLikeEmail(profile.name))) {
-      const updatedProfile = { ...profile, name: cleanedName, updatedAt: now };
-      await updateDoc(ref, { name: cleanedName, updatedAt: now });
+      patch.name = cleanedName;
+    }
+    if (profile.dailyExpectedHours === undefined) patch.dailyExpectedHours = DEFAULT_PROFILE_SETTINGS.dailyExpectedHours;
+    if (profile.dataRetentionMonths === undefined) patch.dataRetentionMonths = DEFAULT_PROFILE_SETTINGS.dataRetentionMonths;
+    if (!profile.workStartTime) patch.workStartTime = DEFAULT_PROFILE_SETTINGS.workStartTime;
+    if (!profile.lunchStartTime) patch.lunchStartTime = DEFAULT_PROFILE_SETTINGS.lunchStartTime;
+    if (!profile.lunchEndTime) patch.lunchEndTime = DEFAULT_PROFILE_SETTINGS.lunchEndTime;
+    if (!profile.workEndTime) patch.workEndTime = DEFAULT_PROFILE_SETTINGS.workEndTime;
+    if (profile.notificationsEnabled === undefined) patch.notificationsEnabled = DEFAULT_PROFILE_SETTINGS.notificationsEnabled;
+    if (profile.notificationLeadMinutes === undefined) patch.notificationLeadMinutes = DEFAULT_PROFILE_SETTINGS.notificationLeadMinutes;
+    if (profile.pushNotificationsEnabled === undefined) patch.pushNotificationsEnabled = DEFAULT_PROFILE_SETTINGS.pushNotificationsEnabled;
+
+    if (Object.keys(patch).length) {
+      const updatedProfile = { ...profile, ...patch, updatedAt: now };
+      await updateDoc(ref, { ...patch, updatedAt: now });
       return updatedProfile;
     }
     return profile;
@@ -47,8 +79,7 @@ export async function getOrCreateProfile(
     name: cleanedName,
     email,
     mainWorkplaceId: null,
-    dailyExpectedHours: 8,
-    dataRetentionMonths: 12,
+    ...DEFAULT_PROFILE_SETTINGS,
     createdAt: now,
     updatedAt: now,
   };
@@ -153,6 +184,23 @@ export function subscribeEntriesInRange(
   });
 }
 
+export function subscribeEntryMonths(
+  uid: string,
+  cb: (monthKeys: string[]) => void,
+): Unsubscribe {
+  const col = collection(getDb(), "users", uid, "timeEntries");
+  return onSnapshot(query(col, orderBy("entryDatetime", "asc")), (snap) => {
+    const months = new Set<string>();
+    snap.docs.forEach((d) => {
+      const data = d.data() as Omit<TimeEntry, "id">;
+      if (!data.isDeleted && Number.isFinite(data.entryDatetime)) {
+        months.add(monthKeyFromMs(data.entryDatetime));
+      }
+    });
+    cb(Array.from(months).sort());
+  });
+}
+
 export async function createTimeEntry(
   uid: string,
   data: {
@@ -160,9 +208,11 @@ export async function createTimeEntry(
     entryType: EntryType;
     entryDatetime: number;
     notes: string;
+    delayReason?: string;
   },
 ): Promise<string> {
   const now = Date.now();
+  const createdWithDelay = Math.abs(now - data.entryDatetime) > 60_000;
   const payload = {
     workplaceId: data.workplaceId,
     entryType: data.entryType,
@@ -171,6 +221,8 @@ export async function createTimeEntry(
     notes: data.notes ?? "",
     isEdited: false,
     isDeleted: false,
+    createdWithDelay,
+    delayReason: data.delayReason ?? "",
     createdAt: now,
     updatedAt: now,
   };
@@ -181,7 +233,7 @@ export async function createTimeEntry(
     fieldName: "entryDatetime",
     oldValue: "",
     newValue: String(data.entryDatetime),
-    reason: "Registro inicial",
+    reason: data.delayReason || (createdWithDelay ? "Registro feito com atraso" : "Registro inicial"),
   });
   return ref.id;
 }
@@ -257,6 +309,35 @@ async function addLog(uid: string, data: Omit<TimeEntryLog, "id" | "createdAt">)
     ...data,
     createdAt: Date.now(),
   });
+}
+
+// ----- Push notification tokens -----
+function tokenDocId(token: string): string {
+  return encodeURIComponent(token).replaceAll(".", "%2E");
+}
+
+export async function saveNotificationToken(
+  uid: string,
+  token: string,
+  data: { userAgent: string },
+): Promise<void> {
+  const now = Date.now();
+  await setDoc(doc(getDb(), "users", uid, "notificationTokens", tokenDocId(token)), {
+    token,
+    platform: "web",
+    userAgent: data.userAgent,
+    enabled: true,
+    createdAt: now,
+    updatedAt: now,
+    lastSeenAt: now,
+  }, { merge: true });
+}
+
+export async function disableNotificationToken(uid: string, token: string): Promise<void> {
+  await setDoc(doc(getDb(), "users", uid, "notificationTokens", tokenDocId(token)), {
+    enabled: false,
+    updatedAt: Date.now(),
+  }, { merge: true });
 }
 
 // ----- Cleanup -----
