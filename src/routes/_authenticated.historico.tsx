@@ -98,114 +98,140 @@ function HistoricoPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+    <div className="space-y-5">
+      <div className="space-y-4">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Histórico</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-1">
+            Seus pontos, mês a mês
+          </h1>
+        </div>
+
+        <div className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-card shadow-elegant p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-1.5">
             <Button
               variant="outline"
               size="icon"
               onClick={() => previousMonthKey && setMonthFromKey(previousMonthKey)}
               disabled={!previousMonthKey}
               aria-label="Ir para o mês anterior com registros"
+              className="rounded-full"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <h1 className="text-xl font-semibold min-w-[9ch] text-center capitalize">
+            <h2 className="text-lg font-semibold min-w-[9ch] text-center capitalize px-2">
               {viewMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
-            </h1>
+            </h2>
             <Button
               variant="outline"
               size="icon"
               onClick={() => nextMonthKey && setMonthFromKey(nextMonthKey)}
               disabled={!nextMonthKey}
               aria-label="Ir para o próximo mês com registros"
+              className="rounded-full"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-          <Button variant="outline" onClick={exportCsv} disabled={!entries.length}>
-            <Download className="h-4 w-4 mr-1" />CSV
-          </Button>
-        </div>
-
-        <div className="flex flex-col gap-2 rounded-md border border-border p-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="space-y-1">
-            <Label htmlFor="history-month" className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" />
-              Escolher mês
-            </Label>
-            <Input
-              id="history-month"
-              type="month"
-              value={viewMonthKey}
-              list="history-months"
-              onChange={(e) => selectMonth(e.target.value)}
-              className="w-full sm:w-[13rem]"
-            />
-            <datalist id="history-months">
-              {availableOrCurrentMonths.map((monthKey) => (
-                <option key={monthKey} value={monthKey} />
-              ))}
-            </datalist>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="history-month" className="sr-only">
+                Escolher mês
+              </Label>
+              <div className="relative">
+                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="history-month"
+                  type="month"
+                  value={viewMonthKey}
+                  list="history-months"
+                  onChange={(e) => selectMonth(e.target.value)}
+                  className="pl-9 w-full sm:w-[12rem]"
+                />
+              </div>
+              <datalist id="history-months">
+                {availableOrCurrentMonths.map((monthKey) => (
+                  <option key={monthKey} value={monthKey} />
+                ))}
+              </datalist>
+            </div>
+            <Button variant="outline" onClick={exportCsv} disabled={!entries.length}>
+              <Download className="h-4 w-4 mr-1" />CSV
+            </Button>
           </div>
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-4 flex items-baseline justify-between">
-          <span className="text-muted-foreground">Total do mês</span>
-          <span className="text-2xl font-bold text-primary">{formatMinutes(monthTotal.minutes)}</span>
+      <Card className="border-0 bg-gradient-primary text-primary-foreground shadow-elevated">
+        <CardContent className="p-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-primary-foreground/70">Total do mês</p>
+            <p className="text-primary-foreground/85 text-sm mt-0.5">
+              {entries.filter((e) => !e.isDeleted).length} pontos registrados
+            </p>
+          </div>
+          <span className="text-3xl sm:text-4xl font-bold font-mono tabular-nums">{formatMinutes(monthTotal.minutes)}</span>
         </CardContent>
       </Card>
 
+
       {days.length === 0 ? (
-        <Card><CardContent className="p-8 text-center text-muted-foreground">Nenhum registro neste mês.</CardContent></Card>
+        <Card className="shadow-elegant">
+          <CardContent className="p-10 text-center text-muted-foreground">
+            <CalendarDays className="mx-auto h-8 w-8 mb-3 opacity-50" />
+            Nenhum registro neste mês.
+          </CardContent>
+        </Card>
       ) : (
-        days.map(([key, list]) => {
-          const dayCalc = calculateWorkedMinutes(list);
-          const date = new Date(list[0].entryDatetime);
-          const dayStatus = getDayPointStatus(profile, list, date);
-          return (
-            <Card key={key}>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex justify-between items-start gap-3 text-base">
-                  <div className="space-y-1">
-                    <span>{date.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" })}</span>
-                    <div><Badge variant={dayStatus.variant}>{dayStatus.label}</Badge></div>
-                  </div>
-                  <span className="text-primary">{formatMinutes(dayCalc.minutes)}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1">
-                {list
-                  .filter((e) => !e.isDeleted)
-                  .sort((a, b) => a.entryDatetime - b.entryDatetime)
-                  .map((e) => {
-                    const status = getEntryStatus(e);
-                    return (
-                      <div key={e.id} className="flex items-start justify-between gap-3 text-sm py-2 border-b border-border last:border-0">
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-mono w-[5.5rem]">{formatTime(e.entryDatetime)}</span>
-                            <span>{ENTRY_TYPE_LABELS[e.entryType]}</span>
-                            <Badge variant={status.variant}>{status.label}</Badge>
+        <div className="space-y-3">
+          {days.map(([key, list]) => {
+            const dayCalc = calculateWorkedMinutes(list);
+            const date = new Date(list[0].entryDatetime);
+            const dayStatus = getDayPointStatus(profile, list, date);
+            return (
+              <Card key={key} className="shadow-elegant hover:shadow-elevated transition-shadow">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex justify-between items-start gap-3 text-base">
+                    <div className="space-y-1.5">
+                      <span className="capitalize text-base font-semibold">
+                        {date.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
+                      </span>
+                      <div><Badge variant={dayStatus.variant}>{dayStatus.label}</Badge></div>
+                    </div>
+                    <span className="text-primary font-mono text-lg tabular-nums">{formatMinutes(dayCalc.minutes)}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-1">
+                  {list
+                    .filter((e) => !e.isDeleted)
+                    .sort((a, b) => a.entryDatetime - b.entryDatetime)
+                    .map((e) => {
+                      const status = getEntryStatus(e);
+                      return (
+                        <div key={e.id} className="flex items-start justify-between gap-3 text-sm py-2.5 border-b border-border last:border-0">
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-mono tabular-nums w-[5.5rem] font-medium">{formatTime(e.entryDatetime)}</span>
+                              <span className="font-medium">{ENTRY_TYPE_LABELS[e.entryType]}</span>
+                              <Badge variant={status.variant}>{status.label}</Badge>
+                            </div>
+                            <div className="text-xs text-muted-foreground">{workplaceNames[e.workplaceId] ?? ""}</div>
+                            {e.notes && <div className="text-xs text-muted-foreground">Obs.: {e.notes}</div>}
+                            {e.delayReason && <div className="text-xs text-muted-foreground">Motivo do atraso: {e.delayReason}</div>}
                           </div>
-                          <div className="text-xs text-muted-foreground">{workplaceNames[e.workplaceId] ?? ""}</div>
-                          {e.notes && <div className="text-xs text-muted-foreground">Obs.: {e.notes}</div>}
-                          {e.delayReason && <div className="text-xs text-muted-foreground">Motivo do atraso: {e.delayReason}</div>}
+                          <Button variant="ghost" size="icon" onClick={() => setEditing(e)} aria-label="Editar ponto" className="rounded-full">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
-                        <Button variant="ghost" size="icon" onClick={() => setEditing(e)} aria-label="Editar ponto">
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    );
-                  })}
-              </CardContent>
-            </Card>
-          );
-        })
+                      );
+                    })}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
+
 
       <EditEntryDialog entry={editing} onClose={() => setEditing(null)} />
     </div>

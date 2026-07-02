@@ -233,26 +233,38 @@ function AppMain() {
   const greeting = getGreeting();
   const firstName = getFirstName(profile, user, "por aqui");
 
+  const progressPct = Math.max(0, Math.min(100, expectedMin > 0 ? (dayCalc.minutes / expectedMin) * 100 : 0));
+
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold">{greeting}, {firstName}</h1>
-        <p className="text-muted-foreground text-sm">
-          {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
-        </p>
+    <div className="space-y-6">
+      {/* Greeting */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">
+            {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
+          </p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-1">
+            {greeting}, <span className="text-gradient-primary">{firstName}</span>
+          </h1>
+        </div>
+        <Badge variant={dayStatus.variant} className="text-xs">
+          {dayStatus.label}
+        </Badge>
       </div>
 
       {dueReminder && (
-        <Card className="border-destructive/40">
+        <Card className="border-destructive/40 shadow-elegant animate-in fade-in slide-in-from-top-2 duration-300">
           <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Bell className="h-4 w-4 text-destructive" />
-                Ponto pendente
+            <div className="flex items-start gap-3">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                <Bell className="h-4 w-4" />
+              </span>
+              <div className="space-y-1">
+                <div className="text-sm font-semibold">Ponto pendente</div>
+                <p className="text-sm text-muted-foreground">
+                  {dueReminder.label} estava previsto para <span className="font-mono font-medium text-foreground">{formatTime(dueReminder.time)}</span>.
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {dueReminder.label} estava previsto para {formatTime(dueReminder.time)}.
-              </p>
             </div>
             {notificationPermission !== "granted" && notificationPermission !== "unsupported" && (
               <Button variant="outline" size="sm" onClick={requestNotificationPermission}>Ativar notificações</Button>
@@ -262,26 +274,37 @@ function AppMain() {
       )}
 
       {!hasWorkplace ? (
-        <Card>
+        <Card className="shadow-elegant">
           <CardHeader>
             <CardTitle>Cadastre um local de trabalho</CardTitle>
             <CardDescription>
-              Antes de bater ponto, adicione ao menos um local em <Link to="/locais" className="underline text-primary">Locais</Link>.
+              Antes de bater ponto, adicione ao menos um local em{" "}
+              <Link to="/locais" className="underline text-primary font-medium">Locais</Link>.
             </CardDescription>
           </CardHeader>
         </Card>
       ) : (
-        <Card className="border-primary/30">
-          <CardHeader className="pb-2">
-            <CardTitle>Bater ponto agora</CardTitle>
-            <CardDescription>Sugestão automática baseada no seu último registro do dia.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <Card className="overflow-hidden border-0 shadow-elevated bg-gradient-hero text-primary-foreground">
+          <CardContent className="p-6 sm:p-8 space-y-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-primary-foreground/70">Bater ponto agora</p>
+                <p className="text-primary-foreground/85 text-sm mt-1">
+                  Sugestão baseada no seu último registro.
+                </p>
+              </div>
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
+                <Clock3 className="h-5 w-5" />
+              </span>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Local</label>
+              <div className="space-y-1.5">
+                <label className="text-[11px] uppercase tracking-wider text-primary-foreground/70">Local</label>
                 <Select value={workplaceId} onValueChange={setWorkplaceId}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectTrigger className="bg-white/12 border-white/25 text-primary-foreground hover:bg-white/18 focus:ring-white/40 [&_svg]:text-primary-foreground/80">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
                   <SelectContent>
                     {activeWorkplaces.map((w) => (
                       <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
@@ -289,10 +312,12 @@ function AppMain() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Tipo</label>
+              <div className="space-y-1.5">
+                <label className="text-[11px] uppercase tracking-wider text-primary-foreground/70">Tipo</label>
                 <Select value={entryType} onValueChange={(v) => setEntryType(v as EntryType)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="bg-white/12 border-white/25 text-primary-foreground hover:bg-white/18 focus:ring-white/40 [&_svg]:text-primary-foreground/80">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {(Object.keys(ENTRY_TYPE_LABELS) as EntryType[]).map((t) => (
                       <SelectItem key={t} value={t}>{ENTRY_TYPE_LABELS[t]}</SelectItem>
@@ -301,67 +326,87 @@ function AppMain() {
                 </Select>
               </div>
             </div>
+
             <Textarea
               placeholder="Observação (opcional)"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
+              className="bg-white/12 border-white/25 text-primary-foreground placeholder:text-primary-foreground/60 focus-visible:ring-white/40"
             />
-            <Button
-              size="lg"
-              className="w-full h-16 text-lg font-semibold"
-              onClick={() => register(false)}
-              disabled={busy || !workplaceId}
-            >
-              Bater ponto - {ENTRY_TYPE_LABELS[entryType]}
-            </Button>
-            <Button variant="outline" className="w-full" onClick={openDelayedDialog} disabled={busy || !workplaceId}>
-              <Clock3 className="h-4 w-4" /> Registrar ponto com atraso
-            </Button>
+
+            <div className="space-y-2">
+              <Button
+                size="lg"
+                className="w-full h-16 text-base sm:text-lg font-semibold bg-white text-primary hover:bg-white/90 shadow-lg"
+                onClick={() => register(false)}
+                disabled={busy || !workplaceId}
+              >
+                Bater ponto — {ENTRY_TYPE_LABELS[entryType]}
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full text-primary-foreground hover:bg-white/12 hover:text-primary-foreground"
+                onClick={openDelayedDialog}
+                disabled={busy || !workplaceId}
+              >
+                <Clock3 className="h-4 w-4" /> Registrar ponto com atraso
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center justify-between">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Card className="shadow-elegant">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
               Hoje
-              <Badge variant={dayStatus.variant}>{dayStatus.label}</Badge>
             </CardTitle>
             <CardDescription>
               {dayCalc.isOpen ? "Expediente em andamento" : "Expediente encerrado"}
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-4">
             <div className="flex items-baseline justify-between">
-              <span className="text-3xl font-bold text-primary">{formatMinutes(dayCalc.minutes)}</span>
+              <span className="text-4xl font-bold tracking-tight text-gradient-primary font-mono">
+                {formatMinutes(dayCalc.minutes)}
+              </span>
               <span className="text-sm text-muted-foreground">de {formatMinutes(expectedMin)}</span>
             </div>
-            <div className="text-sm">
+            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full bg-gradient-primary rounded-full transition-all duration-500"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <div className="text-sm font-medium">
               {dayDiff >= 0 ? (
                 <span style={{ color: "var(--success)" }}>+{formatMinutes(dayDiff)} de saldo</span>
               ) : (
                 <span className="text-destructive">{formatMinutes(dayDiff)} restante</span>
               )}
             </div>
-            <ul className="text-sm text-muted-foreground space-y-2 pt-2 border-t border-border">
+            <ul className="text-sm space-y-2 pt-3 border-t border-border">
               {todayEntries.filter((e) => !e.isDeleted).length === 0 ? (
-                <li>Nenhum ponto hoje.</li>
+                <li className="text-muted-foreground py-2">Nenhum ponto hoje ainda.</li>
               ) : (
                 todayEntries
                   .filter((e) => !e.isDeleted)
                   .map((e) => {
                     const status = getEntryStatus(e);
                     return (
-                      <li key={e.id} className="space-y-1">
-                        <div className="flex justify-between gap-2">
-                          <span>{ENTRY_TYPE_LABELS[e.entryType]}{e.isEdited && " ✎"}</span>
-                          <span className="font-mono">{formatTime(e.entryDatetime)}</span>
+                      <li key={e.id} className="rounded-lg bg-muted/50 px-3 py-2 space-y-1">
+                        <div className="flex justify-between gap-2 items-center">
+                          <span className="font-medium text-sm">
+                            {ENTRY_TYPE_LABELS[e.entryType]}
+                            {e.isEdited && <span className="ml-1 text-muted-foreground">✎</span>}
+                          </span>
+                          <span className="font-mono text-sm tabular-nums">{formatTime(e.entryDatetime)}</span>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 text-xs">
                           <Badge variant={status.variant}>{status.label}</Badge>
-                          {e.notes && <span className="text-muted-foreground">Obs.: {e.notes}</span>}
+                          {e.notes && <span className="text-muted-foreground truncate">Obs.: {e.notes}</span>}
                         </div>
                       </li>
                     );
@@ -371,19 +416,30 @@ function AppMain() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Este mês</CardTitle>
-            <CardDescription>{ym(new Date())}</CardDescription>
+        <Card className="shadow-elegant">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+              Este mês
+            </CardTitle>
+            <CardDescription className="capitalize">
+              {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <span className="text-3xl font-bold">{formatMinutes(monthMinutes.minutes)}</span>
-            <p className="text-sm text-muted-foreground mt-1">
-              {entries.filter((e) => !e.isDeleted).length} pontos registrados
+          <CardContent className="space-y-2">
+            <span className="text-4xl font-bold tracking-tight font-mono">{formatMinutes(monthMinutes.minutes)}</span>
+            <p className="text-sm text-muted-foreground">
+              {entries.filter((e) => !e.isDeleted).length} pontos registrados no mês {ym(new Date())}
             </p>
+            <Link
+              to="/historico"
+              className="inline-flex items-center text-sm font-medium text-primary hover:underline pt-2"
+            >
+              Ver histórico completo →
+            </Link>
           </CardContent>
         </Card>
       </div>
+
 
       <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
         <AlertDialogContent>

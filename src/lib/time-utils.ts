@@ -199,12 +199,13 @@ export function getExpectedPoints(profile: UserProfile | null | undefined, date:
     end = start + (expectedWorkMinutes + lunchMinutes) * 60000;
   }
 
-  return [
+  const points: ExpectedPoint[] = [
     { entryType: "entrada", time: start, label: "Entrada" },
     { entryType: "saida_almoco", time: lunchStart, label: "Saída para almoço" },
     { entryType: "volta_almoco", time: lunchEnd, label: "Volta do almoço" },
     { entryType: "saida", time: end, label: "Saída" },
-  ].sort((a, b) => a.time - b.time);
+  ];
+  return points.sort((a, b) => a.time - b.time);
 }
 
 function hasEntryOfType(entries: TimeEntry[], type: EntryType): boolean {

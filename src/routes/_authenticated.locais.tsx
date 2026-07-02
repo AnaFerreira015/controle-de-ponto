@@ -22,7 +22,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useAppData } from "@/lib/app-data-context";
 import { createWorkplace, deleteWorkplace, updateWorkplace } from "@/lib/firestore-service";
 import type { Workplace } from "@/lib/types";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { MapPin as MapPinIcon, Pencil, Plus, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/locais")({
   head: () => ({
@@ -55,39 +55,54 @@ function LocaisPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Locais de trabalho</h1>
-          <p className="text-muted-foreground text-sm">Cadastre um ou mais locais onde você bate ponto.</p>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Locais</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-1">
+            Locais de trabalho
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Cadastre um ou mais locais onde você bate ponto.
+          </p>
         </div>
-        <Button onClick={() => setCreating(true)}><Plus className="h-4 w-4 mr-1" />Novo</Button>
+        <Button onClick={() => setCreating(true)} className="bg-gradient-primary shadow-glow-primary hover:opacity-95">
+          <Plus className="h-4 w-4 mr-1" />Novo local
+        </Button>
       </div>
 
       {visibleWorkplaces.length === 0 ? (
-        <Card>
-          <CardHeader>
+        <Card className="shadow-elegant border-dashed">
+          <CardHeader className="text-center py-12">
+            <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-3">
+              <Plus className="h-6 w-6" />
+            </span>
             <CardTitle>Nenhum local cadastrado</CardTitle>
-            <CardDescription>Adicione seu primeiro local para começar.</CardDescription>
+            <CardDescription>Adicione seu primeiro local para começar a bater ponto.</CardDescription>
           </CardHeader>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {visibleWorkplaces.map((w) => (
-            <Card key={w.id}>
+            <Card key={w.id} className="shadow-elegant hover:shadow-elevated transition-shadow">
               <CardContent className="flex items-center justify-between gap-3 p-4">
-                <div className="min-w-0">
-                  <div className="font-medium flex items-center gap-2">
-                    {w.name}
-                    {!w.active && <span className="text-xs text-muted-foreground">(inativo)</span>}
+                <div className="flex items-start gap-3 min-w-0">
+                  <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${w.active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                    <MapPinIcon className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="font-semibold flex items-center gap-2">
+                      {w.name}
+                      {!w.active && <span className="text-xs px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-normal">inativo</span>}
+                    </div>
+                    {w.description && <div className="text-sm text-muted-foreground truncate">{w.description}</div>}
                   </div>
-                  {w.description && <div className="text-sm text-muted-foreground truncate">{w.description}</div>}
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => setEditing(w)} aria-label={`Editar ${w.name}`}>
+                  <Button variant="ghost" size="icon" onClick={() => setEditing(w)} aria-label={`Editar ${w.name}`} className="rounded-full">
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => setDeleting(w)} aria-label={`Excluir ${w.name}`}>
+                  <Button variant="ghost" size="icon" onClick={() => setDeleting(w)} aria-label={`Excluir ${w.name}`} className="rounded-full">
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
@@ -96,6 +111,7 @@ function LocaisPage() {
           ))}
         </div>
       )}
+
 
       <WorkplaceDialog
         open={creating}

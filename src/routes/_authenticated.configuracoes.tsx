@@ -165,8 +165,15 @@ function SettingsPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Configurações</h1>
+    <div className="space-y-5">
+      <div>
+        <p className="text-xs uppercase tracking-widest text-muted-foreground">Configurações</p>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-1">Preferências</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Ajuste seu perfil, jornada, notificações e retenção de dados.
+        </p>
+      </div>
+
 
       <Card>
         <CardHeader><CardTitle>Perfil</CardTitle></CardHeader>
@@ -316,9 +323,10 @@ function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Button onClick={save} disabled={busy} className="w-full" size="lg">
-        Salvar alterações
+      <Button onClick={save} disabled={busy} className="w-full h-12 text-base font-semibold bg-gradient-primary shadow-glow-primary hover:opacity-95" size="lg">
+        {busy ? "Salvando…" : "Salvar alterações"}
       </Button>
+
 
       <AlertDialog open={confirmClean} onOpenChange={setConfirmClean}>
         <AlertDialogContent>
