@@ -8,8 +8,10 @@ import {
 } from "react";
 import {
   createUserWithEmailAndPassword,
+  GoogleAuthProvider,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   updateProfile as fbUpdateProfile,
   type User,
@@ -23,6 +25,7 @@ interface AuthCtx {
   configured: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -56,6 +59,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const cred = await createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
         if (name) await fbUpdateProfile(cred.user, { displayName: name });
         await getOrCreateProfile(cred.user.uid, email, name);
+      },
+      async signInWithGoogle() {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: "select_account" });
+        const cred = await signInWithPopup(getFirebaseAuth(), provider);
+        // getOrCreateProfile é idempotente: se o usuário já existir no
+        // Firestore, apenas retorna o perfil existente sem sobrescrever dados.
+        await getOrCreateProfile(
+          cred.user.uid,
+          cred.user.email ?? "",
+          cred.user.displayName ?? "",
+        );
       },
       async logout() {
         await signOut(getFirebaseAuth());

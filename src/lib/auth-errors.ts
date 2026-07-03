@@ -51,6 +51,23 @@ const MAP: Record<string, FriendlyAuthError> = {
     field: "form",
     message: "A janela de login foi fechada antes da conclusão.",
   },
+  "auth/cancelled-popup-request": {
+    field: "form",
+    message: "Login cancelado. Tente novamente.",
+  },
+  "auth/popup-blocked": {
+    field: "form",
+    message: "Seu navegador bloqueou a janela de login. Libere pop-ups e tente novamente.",
+  },
+  "auth/account-exists-with-different-credential": {
+    field: "form",
+    message:
+      "Já existe uma conta com este e-mail usando outro método de login. Entre com o método original.",
+  },
+  "auth/unauthorized-domain": {
+    field: "form",
+    message: "Este domínio não está autorizado para login com Google. Fale com o suporte.",
+  },
   "auth/operation-not-allowed": {
     field: "form",
     message: "Este método de login não está habilitado. Fale com o suporte.",
