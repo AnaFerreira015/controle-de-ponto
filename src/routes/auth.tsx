@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Clock, ShieldCheck, Sparkles, BarChart3 } from "lucide-react";
+import { Clock, ShieldCheck, Sparkles, BarChart3, Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -25,8 +25,12 @@ function AuthPage() {
   const [tab, setTab] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+
 
   if (loading) {
     return (
@@ -42,6 +46,10 @@ function AuthPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (tab === "signup" && password !== confirmPassword) {
+      toast.error("As senhas não coincidem.");
+      return;
+    }
     setBusy(true);
     try {
       if (tab === "login") {
@@ -56,6 +64,7 @@ function AuthPage() {
       setBusy(false);
     }
   }
+
 
   return (
     <div className="min-h-dvh grid lg:grid-cols-2">
@@ -171,17 +180,86 @@ function AuthPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Senha</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    autoComplete={tab === "login" ? "current-password" : "new-password"}
-                    placeholder="Mínimo de 6 caracteres"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete={tab === "login" ? "current-password" : "new-password"}
+                      placeholder="Mínimo de 6 caracteres"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                      aria-pressed={showPassword}
+                      aria-controls="password"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" aria-hidden="true" />
+                      ) : (
+                        <Eye className="h-4 w-4" aria-hidden="true" />
+                      )}
+                    </button>
+                  </div>
                 </div>
+                {tab === "signup" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-password">Confirmar senha</Label>
+                    <div className="relative">
+                      <Input
+                        id="confirm-password"
+                        type={showConfirmPassword ? "text" : "password"}
+                        autoComplete="new-password"
+                        placeholder="Repita a senha"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        minLength={6}
+                        aria-invalid={
+                          confirmPassword.length > 0 && confirmPassword !== password
+                        }
+                        aria-describedby="confirm-password-help"
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword((v) => !v)}
+                        aria-label={
+                          showConfirmPassword ? "Ocultar confirmação de senha" : "Mostrar confirmação de senha"
+                        }
+                        aria-pressed={showConfirmPassword}
+                        aria-controls="confirm-password"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4" aria-hidden="true" />
+                        ) : (
+                          <Eye className="h-4 w-4" aria-hidden="true" />
+                        )}
+                      </button>
+                    </div>
+                    <p
+                      id="confirm-password-help"
+                      className={
+                        confirmPassword.length > 0 && confirmPassword !== password
+                          ? "text-xs font-medium text-destructive"
+                          : "text-xs text-muted-foreground"
+                      }
+                      aria-live="polite"
+                    >
+                      {confirmPassword.length > 0 && confirmPassword !== password
+                        ? "As senhas não coincidem."
+                        : "Digite a mesma senha para confirmar."}
+                    </p>
+                  </div>
+                )}
+
                 <Button
                   type="submit"
                   className="w-full h-11 text-base font-semibold text-white bg-gradient-primary shadow-glow-primary hover:opacity-95"

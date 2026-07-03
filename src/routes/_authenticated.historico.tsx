@@ -147,19 +147,19 @@ function HistoricoPage() {
           </h1>
         </div>
 
-        <div className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-card shadow-elegant p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-1.5">
+        <div className="grid grid-cols-1 gap-3 rounded-2xl border border-border/70 bg-card shadow-elegant p-4 sm:flex sm:flex-row sm:items-center sm:justify-between overflow-hidden">
+          <div className="flex min-w-0 items-center justify-center gap-1.5 sm:justify-start">
             <Button
               variant="outline"
               size="icon"
               onClick={() => previousMonthKey && setMonthFromKey(previousMonthKey)}
               disabled={!previousMonthKey}
               aria-label="Ir para o mês anterior com registros"
-              className="rounded-full"
+              className="rounded-full shrink-0"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <h2 className="text-lg font-semibold min-w-[9ch] text-center capitalize px-2">
+            <h2 className="text-lg font-semibold min-w-0 flex-1 text-center capitalize px-2 truncate">
               {viewMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
             </h2>
             <Button
@@ -168,39 +168,48 @@ function HistoricoPage() {
               onClick={() => nextMonthKey && setMonthFromKey(nextMonthKey)}
               disabled={!nextMonthKey}
               aria-label="Ir para o próximo mês com registros"
-              className="rounded-full"
+              className="rounded-full shrink-0"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-initial">
+          <div className="flex flex-col gap-2 w-full min-w-0 sm:w-auto sm:flex-row sm:items-center">
+            <div className="flex items-center gap-2 w-full min-w-0 sm:w-auto">
               <Label htmlFor="history-month" className="sr-only">
                 Escolher mês
               </Label>
-              <div className="relative min-w-0 flex-1 sm:flex-initial">
+              <div className="relative w-full min-w-0 max-w-full sm:w-[12rem]">
                 <CalendarDays className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="history-month"
-                  type="month"
-                  value={viewMonthKey}
-                  list="history-months"
-                  onChange={(e) => selectMonth(e.target.value)}
-                  className="pl-9 w-full sm:w-[12rem]"
-                />
+                <Select value={viewMonthKey} onValueChange={selectMonth}>
+                  <SelectTrigger
+                    id="history-month"
+                    aria-label="Escolher mês"
+                    className="w-full min-w-0 max-w-full pl-9 [&>span]:truncate"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-w-[calc(100vw-2rem)]">
+                    {availableOrCurrentMonths.map((monthKey) => (
+                      <SelectItem key={monthKey} value={monthKey} className="capitalize">
+                        {formatMonthKey(monthKey)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <datalist id="history-months">
-                {availableOrCurrentMonths.map((monthKey) => (
-                  <option key={monthKey} value={monthKey} />
-                ))}
-              </datalist>
             </div>
-            <Button variant="outline" onClick={exportCsv} disabled={!entries.length} className="shrink-0">
+            <Button
+              variant="outline"
+              onClick={exportCsv}
+              disabled={!entries.length}
+              className="w-full sm:w-auto shrink-0"
+            >
               <Download className="h-4 w-4 mr-1" />
               CSV
             </Button>
           </div>
         </div>
+
       </div>
 
       <Card className="border border-white/10 bg-gradient-primary text-white shadow-elevated">
@@ -460,4 +469,11 @@ function dateFromMonthKey(monthKey: string): Date {
   const [year, month] = monthKey.split("-").map((value) => parseInt(value, 10));
   if (!Number.isFinite(year) || !Number.isFinite(month)) return new Date();
   return new Date(year, month - 1, 1, 0, 0, 0, 0);
+}
+
+function formatMonthKey(monthKey: string): string {
+  return dateFromMonthKey(monthKey).toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
 }

@@ -327,6 +327,7 @@ function SettingsPage() {
         {busy ? "Salvando…" : "Salvar alterações"}
       </Button>
 
+      <div className="h-8 sm:h-0" aria-hidden="true" />
 
       <AlertDialog open={confirmClean} onOpenChange={setConfirmClean}>
         <AlertDialogContent>
