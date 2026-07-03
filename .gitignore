@@ -54,3 +54,6 @@ ui-debug.log
 .wrangler
 .dev.vars*
 !.dev.vars.example
+
+controle-de-ponto-private-key.json
+firestore-backup-*
