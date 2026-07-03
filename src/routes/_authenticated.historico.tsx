@@ -6,8 +6,20 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth-context";
 import { useAppData } from "@/lib/app-data-context";
@@ -25,7 +37,15 @@ import {
   ymd,
 } from "@/lib/time-utils";
 import { ENTRY_TYPE_LABELS, type EntryType, type TimeEntry } from "@/lib/types";
-import { CalendarDays, ChevronLeft, ChevronRight, Download, Pencil, Trash2 } from "lucide-react";
+import {
+  AlertCircle,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/historico")({
   head: () => ({
@@ -73,6 +93,24 @@ function HistoricoPage() {
 
   const monthTotal = calculateWorkedMinutes(entries);
 
+  const monthLabel = useMemo(
+    () => viewMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" }),
+    [viewMonth],
+  );
+
+  const { lateCount, pendingCount } = useMemo(() => {
+    let lateCount = 0;
+    for (const e of entries) {
+      if (!e.isDeleted && getEntryStatus(e).label === "Registrado com atraso") lateCount++;
+    }
+    let pendingCount = 0;
+    for (const [, list] of days) {
+      const status = getDayPointStatus(profile, list, new Date(list[0].entryDatetime));
+      if (status.variant === "outline" || status.variant === "destructive") pendingCount++;
+    }
+    return { lateCount, pendingCount };
+  }, [entries, days, profile]);
+
   function setMonthFromKey(monthKey: string) {
     setViewMonth(dateFromMonthKey(monthKey));
   }
@@ -80,7 +118,9 @@ function HistoricoPage() {
   function selectMonth(monthKey: string) {
     if (!monthKey) return;
     if (monthKey !== currentMonthKey && !availableMonths.includes(monthKey)) {
-      toast.info("Não há registros nesse mês. O histórico mantém apenas meses com dados ou o mês atual.");
+      toast.info(
+        "Não há registros nesse mês. O histórico mantém apenas meses com dados ou o mês atual.",
+      );
       return;
     }
     setMonthFromKey(monthKey);
@@ -156,24 +196,45 @@ function HistoricoPage() {
               </datalist>
             </div>
             <Button variant="outline" onClick={exportCsv} disabled={!entries.length}>
-              <Download className="h-4 w-4 mr-1" />CSV
+              <Download className="h-4 w-4 mr-1" />
+              CSV
             </Button>
           </div>
         </div>
       </div>
 
-      <Card className="border-0 bg-gradient-primary text-primary-foreground shadow-elevated">
-        <CardContent className="p-5 flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-widest text-primary-foreground/70">Total do mês</p>
-            <p className="text-primary-foreground/85 text-sm mt-0.5">
-              {entries.filter((e) => !e.isDeleted).length} pontos registrados
-            </p>
+      <Card className="border border-white/10 bg-gradient-primary text-white shadow-elevated">
+        <CardContent className="p-5 space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm uppercase tracking-widest font-semibold text-white">
+                Total do mês
+              </p>
+              <p className="text-white text-sm mt-0.5">
+                {entries.filter((e) => !e.isDeleted).length} pontos registrados em {monthLabel}
+              </p>
+            </div>
+            <span className="text-3xl sm:text-4xl font-bold font-mono tabular-nums">
+              {formatMinutes(monthTotal.minutes)}
+            </span>
           </div>
-          <span className="text-3xl sm:text-4xl font-bold font-mono tabular-nums">{formatMinutes(monthTotal.minutes)}</span>
+          {(lateCount > 0 || pendingCount > 0) && (
+            <div className="rounded-xl border border-white/20 bg-white/15 p-3 text-sm">
+              <div className="flex items-center gap-2 font-semibold">
+                <AlertCircle className="h-4 w-4" />
+                Atenção
+              </div>
+              <p className="mt-1 text-white">
+                {lateCount > 0 &&
+                  `${lateCount} ponto${lateCount > 1 ? "s" : ""} registrado${lateCount > 1 ? "s" : ""} com atraso`}
+                {lateCount > 0 && pendingCount > 0 && " e "}
+                {pendingCount > 0 &&
+                  `${pendingCount} dia${pendingCount > 1 ? "s" : ""} com registro${pendingCount > 1 ? "s" : ""} pendente${pendingCount > 1 ? "s" : ""}`}
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
-
 
       {days.length === 0 ? (
         <Card className="shadow-elegant">
@@ -194,11 +255,19 @@ function HistoricoPage() {
                   <CardTitle className="flex justify-between items-start gap-3 text-base">
                     <div className="space-y-1.5">
                       <span className="capitalize text-base font-semibold">
-                        {date.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
+                        {date.toLocaleDateString("pt-BR", {
+                          weekday: "long",
+                          day: "2-digit",
+                          month: "long",
+                        })}
                       </span>
-                      <div><Badge variant={dayStatus.variant}>{dayStatus.label}</Badge></div>
+                      <div>
+                        <Badge variant={dayStatus.variant}>{dayStatus.label}</Badge>
+                      </div>
                     </div>
-                    <span className="text-primary font-mono text-lg tabular-nums">{formatMinutes(dayCalc.minutes)}</span>
+                    <span className="text-primary font-mono text-lg tabular-nums">
+                      {formatMinutes(dayCalc.minutes)}
+                    </span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1">
@@ -208,18 +277,37 @@ function HistoricoPage() {
                     .map((e) => {
                       const status = getEntryStatus(e);
                       return (
-                        <div key={e.id} className="flex items-start justify-between gap-3 text-sm py-2.5 border-b border-border last:border-0">
+                        <div
+                          key={e.id}
+                          className="flex items-start justify-between gap-3 text-sm py-2.5 border-b border-border last:border-0"
+                        >
                           <div className="space-y-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-mono tabular-nums w-[5.5rem] font-medium">{formatTime(e.entryDatetime)}</span>
+                              <span className="font-mono tabular-nums w-[5.5rem] font-medium">
+                                {formatTime(e.entryDatetime)}
+                              </span>
                               <span className="font-medium">{ENTRY_TYPE_LABELS[e.entryType]}</span>
                               <Badge variant={status.variant}>{status.label}</Badge>
                             </div>
-                            <div className="text-xs text-muted-foreground">{workplaceNames[e.workplaceId] ?? ""}</div>
-                            {e.notes && <div className="text-xs text-muted-foreground">Obs.: {e.notes}</div>}
-                            {e.delayReason && <div className="text-xs text-muted-foreground">Motivo do atraso: {e.delayReason}</div>}
+                            <div className="text-xs text-muted-foreground">
+                              {workplaceNames[e.workplaceId] ?? ""}
+                            </div>
+                            {e.notes && (
+                              <div className="text-xs text-muted-foreground">Obs.: {e.notes}</div>
+                            )}
+                            {e.delayReason && (
+                              <div className="text-xs text-muted-foreground">
+                                Motivo do atraso: {e.delayReason}
+                              </div>
+                            )}
                           </div>
-                          <Button variant="ghost" size="icon" onClick={() => setEditing(e)} aria-label="Editar ponto" className="rounded-full">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditing(e)}
+                            aria-label="Editar ponto"
+                            className="rounded-full"
+                          >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
                         </div>
@@ -231,7 +319,6 @@ function HistoricoPage() {
           })}
         </div>
       )}
-
 
       <EditEntryDialog entry={editing} onClose={() => setEditing(null)} />
     </div>
@@ -249,7 +336,9 @@ function EditEntryDialog({ entry, onClose }: { entry: TimeEntry | null; onClose:
   useEffect(() => {
     if (!entry) return;
     const d = new Date(entry.entryDatetime);
-    setTime(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`);
+    setTime(
+      `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`,
+    );
     setType(entry.entryType);
     setNotes(entry.notes ?? "");
     setReason("");
@@ -267,15 +356,24 @@ function EditEntryDialog({ entry, onClose }: { entry: TimeEntry | null; onClose:
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Hora</Label>
-                <Input type="time" step={1} value={time} onChange={(e) => setTime(e.target.value)} />
+                <Input
+                  type="time"
+                  step={1}
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                />
               </div>
               <div className="space-y-1">
                 <Label>Tipo</Label>
                 <Select value={type} onValueChange={(v) => setType(v as EntryType)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {(Object.keys(ENTRY_TYPE_LABELS) as EntryType[]).map((t) => (
-                      <SelectItem key={t} value={t}>{ENTRY_TYPE_LABELS[t]}</SelectItem>
+                      <SelectItem key={t} value={t}>
+                        {ENTRY_TYPE_LABELS[t]}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -287,7 +385,11 @@ function EditEntryDialog({ entry, onClose }: { entry: TimeEntry | null; onClose:
             </div>
             <div className="space-y-1">
               <Label>Motivo da alteração</Label>
-              <Input placeholder="Ex.: esqueci de bater no horário" value={reason} onChange={(e) => setReason(e.target.value)} />
+              <Input
+                placeholder="Ex.: esqueci de bater no horário"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
             </div>
           </div>
         )}
@@ -310,10 +412,13 @@ function EditEntryDialog({ entry, onClose }: { entry: TimeEntry | null; onClose:
               }
             }}
           >
-            <Trash2 className="h-4 w-4 mr-1" />Excluir
+            <Trash2 className="h-4 w-4 mr-1" />
+            Excluir
           </Button>
           <div className="flex gap-2">
-            <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+            <Button variant="ghost" onClick={onClose}>
+              Cancelar
+            </Button>
             <Button
               disabled={!entry || !user || !reason.trim() || busy}
               onClick={async () => {
@@ -323,11 +428,16 @@ function EditEntryDialog({ entry, onClose }: { entry: TimeEntry | null; onClose:
                 d.setHours(h || 0, m || 0, sec || 0, 0);
                 setBusy(true);
                 try {
-                  await editTimeEntry(user.uid, entry, {
-                    entryDatetime: d.getTime(),
-                    notes,
-                    entryType: type,
-                  }, reason.trim());
+                  await editTimeEntry(
+                    user.uid,
+                    entry,
+                    {
+                      entryDatetime: d.getTime(),
+                      notes,
+                      entryType: type,
+                    },
+                    reason.trim(),
+                  );
                   toast.success("Ponto atualizado");
                   onClose();
                 } catch (e) {

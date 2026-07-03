@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Clock, ShieldCheck, Sparkles, BarChart3, Eye, EyeOff } from "lucide-react";
+import { Clock, ShieldCheck, Sparkles, BarChart3 } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -27,9 +27,6 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   if (loading) {
     return (
@@ -43,36 +40,15 @@ function AuthPage() {
   }
   if (user) return <Navigate to="/app" replace />;
 
-  const isLoginFormValid =
-    email.trim().length > 0 &&
-    password.length >= 6;
-
-  const isSignupFormValid =
-    name.trim().length > 0 &&
-    email.trim().length > 0 &&
-    password.length >= 6 &&
-    confirmPassword.length >= 6 &&
-    password === confirmPassword;
-
-  const canSubmit = tab === "login" ? isLoginFormValid : isSignupFormValid;
-
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-
-    if (tab === "signup" && password !== confirmPassword) {
-      toast.error("As senhas não conferem.");
-      return;
-    }
-
     setBusy(true);
-
     try {
       if (tab === "login") {
         await signIn(email, password);
       } else {
         await signUp(name, email, password);
       }
-
       navigate({ to: "/app" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Falha na autenticação");
@@ -84,7 +60,7 @@ function AuthPage() {
   return (
     <div className="min-h-dvh grid lg:grid-cols-2">
       {/* Left panel — hero */}
-      <aside className="relative hidden lg:flex bg-gradient-hero text-primary-foreground p-12 flex-col justify-between overflow-hidden">
+      <aside className="relative hidden lg:flex bg-gradient-hero text-white p-12 flex-col justify-between overflow-hidden">
         <div className="absolute inset-0 opacity-30 pointer-events-none" aria-hidden="true">
           <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-white/20 blur-3xl" />
           <div className="absolute bottom-0 -left-24 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
@@ -99,7 +75,7 @@ function AuthPage() {
           <h2 className="text-4xl font-bold leading-tight tracking-tight">
             Sua jornada de trabalho, sob controle.
           </h2>
-          <p className="text-primary-foreground/85 text-lg">
+          <p className="text-white text-lg">
             Registre entradas, pausas e saídas em segundos. Acompanhe seu saldo de horas
             em tempo real.
           </p>
@@ -118,7 +94,7 @@ function AuthPage() {
             </li>
           </ul>
         </div>
-        <div className="relative z-10 text-xs text-primary-foreground/60">
+        <div className="relative z-10 text-xs text-white">
           © {new Date().getFullYear()} Controle de Ponto
         </div>
       </aside>
@@ -127,8 +103,8 @@ function AuthPage() {
       <section className="flex flex-col items-center justify-center px-4 py-10 sm:py-16">
         <div className="w-full max-w-md">
           <div className="flex lg:hidden items-center justify-center gap-2.5 mb-6">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-primary shadow-glow-primary">
-              <Clock className="h-5 w-5 text-primary-foreground" />
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-primary shadow-glow-primary text-white">
+              <Clock className="h-5 w-5 text-white" />
             </span>
             <h1 className="text-xl font-semibold text-foreground">Controle de Ponto</h1>
           </div>
@@ -195,76 +171,31 @@ function AuthPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Senha</Label>
-
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      autoComplete={tab === "login" ? "current-password" : "new-password"}
-                      placeholder="Mínimo de 6 caracteres"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      minLength={6}
-                      className="pr-10"
-                    />
-
-                    <button
-                      type="button"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      onClick={() => setShowPassword((value) => !value)}
-                      aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete={tab === "login" ? "current-password" : "new-password"}
+                    placeholder="Mínimo de 6 caracteres"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
                 </div>
-                {tab === "signup" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirmar senha</Label>
-
-                    <div className="relative">
-                      <Input
-                        id="confirmPassword"
-                        type={showConfirmPassword ? "text" : "password"}
-                        autoComplete="new-password"
-                        placeholder="Digite a senha novamente"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        required
-                        minLength={6}
-                        className="pr-10"
-                      />
-
-                      <button
-                        type="button"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        onClick={() => setShowConfirmPassword((value) => !value)}
-                        aria-label={showConfirmPassword ? "Ocultar confirmação de senha" : "Mostrar confirmação de senha"}
-                      >
-                        {showConfirmPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                )}
                 <Button
                   type="submit"
-                  className="w-full h-11 text-base font-semibold bg-gradient-primary shadow-glow-primary hover:opacity-95"
-                  disabled={busy || !configured || !canSubmit}
+                  className="w-full h-11 text-base font-semibold text-white bg-gradient-primary shadow-glow-primary hover:opacity-95"
+                  disabled={busy || !configured}
                 >
                   {busy ? "Aguarde…" : tab === "login" ? "Entrar" : "Criar conta"}
                 </Button>
               </form>
             </CardContent>
           </Card>
+
+          <p className="text-center text-xs text-muted-foreground mt-6">
+            Ao continuar, você concorda com os termos de uso do aplicativo.
+          </p>
         </div>
       </section>
     </div>

@@ -66,7 +66,7 @@ function LocaisPage() {
             Cadastre um ou mais locais onde você bate ponto.
           </p>
         </div>
-        <Button onClick={() => setCreating(true)} className="bg-gradient-primary shadow-glow-primary hover:opacity-95">
+        <Button onClick={() => setCreating(true)} className="bg-gradient-primary text-white shadow-glow-primary hover:opacity-95">
           <Plus className="h-4 w-4 mr-1" />Novo local
         </Button>
       </div>

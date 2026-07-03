@@ -323,7 +323,7 @@ function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Button onClick={save} disabled={busy} className="w-full h-12 text-base font-semibold bg-gradient-primary shadow-glow-primary hover:opacity-95" size="lg">
+      <Button onClick={save} disabled={busy} className="w-full h-12 text-base font-semibold text-white bg-gradient-primary shadow-glow-primary hover:opacity-95" size="lg">
         {busy ? "Salvando…" : "Salvar alterações"}
       </Button>
 

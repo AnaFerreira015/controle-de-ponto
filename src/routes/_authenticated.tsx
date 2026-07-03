@@ -105,8 +105,8 @@ function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => Pr
       <header className="sticky top-0 z-30 border-b border-border/60 glass-surface">
         <div className="max-w-3xl mx-auto flex items-center justify-between px-4 h-16">
           <Link to="/app" className="flex items-center gap-2.5 group">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-glow-primary transition-transform group-hover:scale-105">
-              <Clock className="h-5 w-5 text-primary-foreground" />
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-glow-primary transition-transform group-hover:scale-105 text-white">
+              <Clock className="h-5 w-5 text-white" aria-hidden="true" />
             </span>
             <span className="flex flex-col leading-tight">
               <span className="font-semibold tracking-tight">Controle de Ponto</span>
@@ -131,7 +131,7 @@ function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => Pr
                   className="ml-1 flex items-center gap-2 rounded-full pl-1 pr-3 py-1 hover:bg-accent transition-colors"
                   aria-label="Abrir menu do usuário"
                 >
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-primary text-primary-foreground font-semibold text-sm shadow-sm">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-primary text-white font-semibold text-sm shadow-sm">
                     {initial}
                   </span>
                   <span className="hidden sm:inline text-sm font-medium max-w-[10rem] truncate">
@@ -178,10 +178,10 @@ function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => Pr
                 key={to}
                 to={to}
                 aria-current={active ? "page" : undefined}
-                className={`inline-flex items-center gap-2 px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                className={`inline-flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-md -mb-px transition-colors ${
                   active
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    ? "bg-primary text-primary-foreground"
+                    : "border-b-2 border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -214,7 +214,7 @@ function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => Pr
                 <span
                   className={`inline-flex h-9 w-16 items-center justify-center rounded-full transition-all ${
                     active
-                      ? "bg-primary/12 text-primary"
+                      ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground group-hover:text-foreground group-hover:bg-muted"
                   }`}
                 >
