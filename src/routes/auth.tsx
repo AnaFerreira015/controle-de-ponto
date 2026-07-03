@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Clock, ShieldCheck, Sparkles, BarChart3, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { friendlyAuthError, type AuthErrorField } from "@/lib/auth-errors";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 
 export const Route = createFileRoute("/auth")({
@@ -90,6 +91,9 @@ function AuthPage() {
 
   return (
     <div className="min-h-dvh grid lg:grid-cols-2">
+      <div className="fixed top-3 right-3 z-50 safe-top safe-x">
+        <ThemeToggle className="bg-background/70 backdrop-blur border border-border/60 shadow-sm" />
+      </div>
       {/* Left panel — hero */}
       <aside className="relative hidden lg:flex bg-gradient-hero text-white p-12 flex-col justify-between overflow-hidden">
         <div className="absolute inset-0 opacity-30 pointer-events-none" aria-hidden="true">

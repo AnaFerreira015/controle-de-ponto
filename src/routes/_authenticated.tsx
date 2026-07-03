@@ -10,7 +10,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Clock, History, MapPin, Settings, LogOut, Sun, Moon, User as UserIcon } from "lucide-react";
+import { Clock, History, MapPin, Settings, LogOut, User as UserIcon } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { useEffect, useState, type ReactNode } from "react";
 import { getOrCreateProfile } from "@/lib/firestore-service";
 import { getDisplayName, getFirstName } from "@/lib/user-display";
@@ -57,22 +58,8 @@ function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => Pr
   const navigate = useNavigate();
   const { profile } = useAppData();
   const { user } = useAuth();
-  const [isDark, setIsDark] = useState(false);
 
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains("dark"));
-  }, []);
 
-  function toggleTheme() {
-    const next = !isDark;
-    setIsDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    try {
-      localStorage.setItem("theme", next ? "dark" : "light");
-    } catch {
-      /* noop */
-    }
-  }
 
   async function handleLogout() {
     try {
@@ -104,6 +91,7 @@ function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => Pr
       </a>
       <header className="sticky top-0 z-30 border-b border-border/60 glass-surface safe-top safe-x">
         <div className="max-w-3xl mx-auto flex items-center justify-between px-4 h-16">
+
           <Link to="/app" className="flex items-center gap-2.5 group">
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-glow-primary transition-transform group-hover:scale-105 text-white">
               <Clock className="h-5 w-5 text-white" aria-hidden="true" />
@@ -116,15 +104,8 @@ function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => Pr
             </span>
           </Link>
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              aria-label={isDark ? "Ativar tema claro" : "Ativar tema escuro"}
-              className="rounded-full"
-            >
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
+            <ThemeToggle />
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
