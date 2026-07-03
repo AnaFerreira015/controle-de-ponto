@@ -102,7 +102,7 @@ function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => Pr
       >
         Pular para o conteúdo
       </a>
-      <header className="sticky top-0 z-30 border-b border-border/60 glass-surface">
+      <header className="sticky top-0 z-30 border-b border-border/60 glass-surface safe-top safe-x">
         <div className="max-w-3xl mx-auto flex items-center justify-between px-4 h-16">
           <Link to="/app" className="flex items-center gap-2.5 group">
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-glow-primary transition-transform group-hover:scale-105 text-white">
@@ -199,7 +199,7 @@ function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => Pr
       {/* Mobile bottom nav */}
       <nav
         aria-label="Navegação principal móvel"
-        className="fixed bottom-0 inset-x-0 z-30 border-t border-border/60 glass-surface safe-bottom sm:hidden"
+        className="fixed bottom-0 inset-x-0 z-30 border-t border-border/60 glass-surface safe-bottom safe-x sm:hidden"
       >
         <div className="max-w-3xl mx-auto grid grid-cols-4 px-2 pt-1.5">
           {items.map(({ to, label, icon: Icon }) => {

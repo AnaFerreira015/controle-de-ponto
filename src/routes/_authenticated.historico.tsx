@@ -173,12 +173,12 @@ function HistoricoPage() {
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-initial">
               <Label htmlFor="history-month" className="sr-only">
                 Escolher mês
               </Label>
-              <div className="relative">
+              <div className="relative min-w-0 flex-1 sm:flex-initial">
                 <CalendarDays className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="history-month"
@@ -195,7 +195,7 @@ function HistoricoPage() {
                 ))}
               </datalist>
             </div>
-            <Button variant="outline" onClick={exportCsv} disabled={!entries.length}>
+            <Button variant="outline" onClick={exportCsv} disabled={!entries.length} className="shrink-0">
               <Download className="h-4 w-4 mr-1" />
               CSV
             </Button>
