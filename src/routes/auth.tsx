@@ -1,13 +1,14 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
-import { toast } from "sonner";
+import { useRef, useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Clock, ShieldCheck, Sparkles, BarChart3, Eye, EyeOff } from "lucide-react";
+import { Clock, ShieldCheck, Sparkles, BarChart3, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { friendlyAuthError, type AuthErrorField } from "@/lib/auth-errors";
+
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -30,6 +31,12 @@ function AuthPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<AuthErrorField | null>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLInputElement>(null);
 
 
   if (loading) {
@@ -46,8 +53,12 @@ function AuthPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    setFormError(null);
+    setFieldError(null);
     if (tab === "signup" && password !== confirmPassword) {
-      toast.error("As senhas não coincidem.");
+      setFormError("As senhas não coincidem.");
+      setFieldError("password");
+      confirmRef.current?.focus();
       return;
     }
     setBusy(true);
@@ -59,7 +70,18 @@ function AuthPage() {
       }
       navigate({ to: "/app" });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha na autenticação");
+      const { message, field } = friendlyAuthError(err);
+      setFormError(message);
+      setFieldError(field);
+      const target =
+        field === "email"
+          ? emailRef.current
+          : field === "password"
+            ? passwordRef.current
+            : field === "name"
+              ? nameRef.current
+              : emailRef.current;
+      target?.focus();
     } finally {
       setBusy(false);
     }
@@ -143,7 +165,14 @@ function AuthPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs value={tab} onValueChange={(v) => setTab(v as "login" | "signup")}>
+              <Tabs
+                value={tab}
+                onValueChange={(v) => {
+                  setTab(v as "login" | "signup");
+                  setFormError(null);
+                  setFieldError(null);
+                }}
+              >
                 <TabsList className="grid grid-cols-2 w-full">
                   <TabsTrigger value="login">Entrar</TabsTrigger>
                   <TabsTrigger value="signup">Criar conta</TabsTrigger>
@@ -152,16 +181,28 @@ function AuthPage() {
                 <TabsContent value="signup" />
               </Tabs>
 
-              <form onSubmit={onSubmit} className="space-y-4 mt-5">
+              <form onSubmit={onSubmit} className="space-y-4 mt-5" noValidate>
+                {formError && (
+                  <div
+                    role="alert"
+                    aria-live="assertive"
+                    className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                  >
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                    <p className="leading-snug">{formError}</p>
+                  </div>
+                )}
                 {tab === "signup" && (
                   <div className="space-y-2">
                     <Label htmlFor="name">Nome</Label>
                     <Input
                       id="name"
+                      ref={nameRef}
                       autoComplete="name"
                       placeholder="Seu nome"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
+                      aria-invalid={fieldError === "name"}
                       required
                     />
                   </div>
@@ -170,11 +211,13 @@ function AuthPage() {
                   <Label htmlFor="email">E-mail</Label>
                   <Input
                     id="email"
+                    ref={emailRef}
                     type="email"
                     autoComplete="email"
                     placeholder="voce@exemplo.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    aria-invalid={fieldError === "email"}
                     required
                   />
                 </div>
@@ -183,6 +226,7 @@ function AuthPage() {
                   <div className="relative">
                     <Input
                       id="password"
+                      ref={passwordRef}
                       type={showPassword ? "text" : "password"}
                       autoComplete={tab === "login" ? "current-password" : "new-password"}
                       placeholder="Mínimo de 6 caracteres"
@@ -190,6 +234,7 @@ function AuthPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       minLength={6}
+                      aria-invalid={fieldError === "password"}
                       className="pr-10"
                     />
                     <button
@@ -214,6 +259,7 @@ function AuthPage() {
                     <div className="relative">
                       <Input
                         id="confirm-password"
+                        ref={confirmRef}
                         type={showConfirmPassword ? "text" : "password"}
                         autoComplete="new-password"
                         placeholder="Repita a senha"
