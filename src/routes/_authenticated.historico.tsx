@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +43,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  FileText,
   Pencil,
   Trash2,
 } from "lucide-react";
@@ -137,6 +138,36 @@ function HistoricoPage() {
     URL.revokeObjectURL(url);
   }
 
+  const pdfInputRef = useRef<HTMLInputElement | null>(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  async function handlePdfSelected(file: File) {
+    setGeneratingPdf(true);
+    try {
+      const { fillTimesheetPdf } = await import("@/lib/pdf-timesheet");
+      const buffer = await file.arrayBuffer();
+      const bytes = await fillTimesheetPdf({
+        templateBytes: buffer,
+        entries,
+        month: viewMonth,
+      });
+      const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const base = file.name.replace(/\.pdf$/i, "");
+      a.download = `${base}-preenchido-${ym(viewMonth)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Folha de ponto gerada");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao gerar PDF");
+    } finally {
+      setGeneratingPdf(false);
+    }
+  }
+
+
   return (
     <div className="space-y-5">
       <div className="space-y-4">
@@ -207,6 +238,28 @@ function HistoricoPage() {
               <Download className="h-4 w-4 mr-1" />
               CSV
             </Button>
+            <input
+              ref={pdfInputRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) void handlePdfSelected(file);
+              }}
+            />
+            <Button
+              variant="outline"
+              onClick={() => pdfInputRef.current?.click()}
+              disabled={!entries.length || generatingPdf}
+              className="w-full sm:w-auto shrink-0"
+              title="Enviar o PDF modelo para preencher os horários do mês"
+            >
+              <FileText className="h-4 w-4 mr-1" />
+              {generatingPdf ? "Gerando..." : "Folha (PDF)"}
+            </Button>
+
           </div>
         </div>
 
