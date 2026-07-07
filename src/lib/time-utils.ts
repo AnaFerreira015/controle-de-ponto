@@ -187,7 +187,14 @@ function timeOnDate(date: Date, value: string | undefined, fallback: string): nu
   return d.getTime();
 }
 
+export function isWeekend(date: Date): boolean {
+  const day = date.getDay();
+  return day === 0 || day === 6;
+}
+
 export function getExpectedPoints(profile: UserProfile | null | undefined, date: Date): ExpectedPoint[] {
+  // Finais de semana não têm pontos esperados (não geram atrasos nem lembretes).
+  if (isWeekend(date)) return [];
   const start = timeOnDate(date, profile?.workStartTime, DEFAULT_WORK_START);
   const lunchStart = timeOnDate(date, profile?.lunchStartTime, DEFAULT_LUNCH_START);
   const lunchEnd = timeOnDate(date, profile?.lunchEndTime, DEFAULT_LUNCH_END);
