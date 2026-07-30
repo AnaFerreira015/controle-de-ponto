@@ -102,7 +102,6 @@ function buildDay(
       }
     }
 
-
     const minCount = Math.min(...pool.map((c) => c.count));
     const leastUsed = pool.filter((c) => c.count === minCount);
     const picked = pick(leastUsed);
