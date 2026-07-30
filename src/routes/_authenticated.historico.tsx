@@ -45,6 +45,7 @@ import {
   Download,
   FileText,
   Pencil,
+  Shuffle,
   Trash2,
 } from "lucide-react";
 
@@ -98,6 +99,27 @@ function HistoricoPage() {
     () => viewMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" }),
     [viewMonth],
   );
+
+  const canGenerateRandomPdf = useMemo(() => {
+    if (!profile) return false;
+    const hasStart = Boolean(profile.workStartTime);
+    const hasLunchStart = Boolean(profile.lunchStartTime);
+    const hasLunchEnd = Boolean(profile.lunchEndTime);
+    const hasEnd = Boolean(profile.workEndTime);
+    const hasDailyHours = Number.isFinite(profile.dailyExpectedHours) && profile.dailyExpectedHours > 0;
+    return hasStart && hasLunchStart && hasLunchEnd && (hasEnd || hasDailyHours);
+  }, [profile]);
+
+  const randomPdfDisabledReason = useMemo(() => {
+    if (!profile) return "Faça login para usar esta opção.";
+    if (!profile.workStartTime) return 'Configure seu horário de entrada em "Ajustes".';
+    if (!profile.lunchStartTime) return 'Configure seu horário de saída para o almoço em "Ajustes".';
+    if (!profile.lunchEndTime) return 'Configure seu horário de volta do almoço em "Ajustes".';
+    if (!profile.workEndTime && !(Number.isFinite(profile.dailyExpectedHours) && profile.dailyExpectedHours > 0)) {
+      return 'Configure seu horário de saída ou carga horária diária em "Ajustes".';
+    }
+    return "";
+  }, [profile]);
 
   const { lateCount, pendingCount } = useMemo(() => {
     let lateCount = 0;
@@ -156,7 +178,8 @@ function HistoricoPage() {
       const a = document.createElement("a");
       a.href = url;
       const base = file.name.replace(/\.pdf$/i, "");
-      a.download = `${base}-preenchido-${ym(viewMonth)}.pdf`;
+      const monthSuffix = formatMmYyyy(viewMonth);
+      a.download = `${base} - ${monthSuffix}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Folha de ponto gerada");
@@ -167,6 +190,48 @@ function HistoricoPage() {
     }
   }
 
+  const randomPdfInputRef = useRef<HTMLInputElement | null>(null);
+  const [generatingRandomPdf, setGeneratingRandomPdf] = useState(false);
+
+  async function handleRandomPdfSelected(file: File) {
+    setGeneratingRandomPdf(true);
+    try {
+      const [{ fillTimesheetPdf }, { generateRandomEntries }] = await Promise.all([
+        import("@/lib/pdf-timesheet"),
+        import("@/lib/random-timesheet"),
+      ]);
+      const randomEntries = generateRandomEntries({
+        profile,
+        month: viewMonth,
+        workplaceId: profile?.mainWorkplaceId ?? workplaces[0]?.id ?? "",
+        until: ym(viewMonth) === currentMonthKey ? new Date() : new Date(
+          viewMonth.getFullYear(),
+          viewMonth.getMonth() + 1,
+          0,
+        ),
+      });
+      const buffer = await file.arrayBuffer();
+      const bytes = await fillTimesheetPdf({
+        templateBytes: buffer,
+        entries: randomEntries,
+        month: viewMonth,
+      });
+      const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const base = file.name.replace(/\.pdf$/i, "");
+      const monthSuffix = formatMmYyyy(viewMonth);
+      a.download = `${base} - ${monthSuffix}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Folha de ponto gerada com horários aleatórios");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao gerar PDF");
+    } finally {
+      setGeneratingRandomPdf(false);
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -258,6 +323,37 @@ function HistoricoPage() {
             >
               <FileText className="h-4 w-4 mr-1" />
               {generatingPdf ? "Gerando..." : "Folha (PDF)"}
+            </Button>
+            <input
+              ref={randomPdfInputRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) void handleRandomPdfSelected(file);
+              }}
+            />
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!canGenerateRandomPdf) {
+                  toast.info(randomPdfDisabledReason);
+                  return;
+                }
+                randomPdfInputRef.current?.click();
+              }}
+              disabled={generatingRandomPdf}
+              className="w-full sm:w-auto shrink-0"
+              title={
+                canGenerateRandomPdf
+                  ? "Gerar horários aleatórios (não salvos) e preencher o PDF modelo"
+                  : randomPdfDisabledReason
+              }
+            >
+              <Shuffle className="h-4 w-4 mr-1" />
+              {generatingRandomPdf ? "Gerando..." : "Folha aleatória (PDF)"}
             </Button>
 
           </div>
@@ -529,4 +625,10 @@ function formatMonthKey(monthKey: string): string {
     month: "long",
     year: "numeric",
   });
+}
+
+function formatMmYyyy(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${month}-${year}`;
 }
