@@ -115,8 +115,7 @@ function buildDay(
     usage.last.set(type, [...recent, hhmm(ts)].slice(-COOLDOWN_DAYS));
   }
 
-  const worked =
-    (times.saida_almoco - times.entrada + (times.saida - times.volta_almoco)) / 60000;
+  const worked = (times.saida_almoco - times.entrada + (times.saida - times.volta_almoco)) / 60000;
 
   return { date, times, extraMinutes: Math.round(worked - baseWorkedMinutes) };
 }
@@ -173,7 +172,8 @@ export function generateRandomEntries({
   if (!profile.lunchEndTime) missing.push("horário de volta do almoço");
 
   const hasEndTime = Boolean(profile.workEndTime);
-  const hasDailyHours = Number.isFinite(profile.dailyExpectedHours) && profile.dailyExpectedHours > 0;
+  const hasDailyHours =
+    Number.isFinite(profile.dailyExpectedHours) && profile.dailyExpectedHours > 0;
   if (!hasEndTime && !hasDailyHours) {
     missing.push("horário de saída (ou carga horária diária)");
   }
@@ -259,7 +259,6 @@ export function generateRandomEntries({
       if (!best || Math.abs(total - weekTarget) < Math.abs(best.total - weekTarget)) {
         best = { plans, usage: attemptUsage, total };
       }
-
     }
 
     if (!best) continue;
