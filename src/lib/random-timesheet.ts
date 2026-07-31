@@ -17,13 +17,6 @@ function parseClock(value: string): [number, number] {
   return [Number.isFinite(h) ? h : 0, Number.isFinite(m) ? m : 0];
 }
 
-function timeOnDate(date: Date, value: string): number {
-  const [h, m] = parseClock(value);
-  const d = startOfDay(date);
-  d.setHours(h, m, 0, 0);
-  return d.getTime();
-}
-
 function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -49,7 +42,6 @@ interface Usage {
 }
 
 const COOLDOWN_DAYS = 4;
-
 
 function keyOf(type: GeneratedType, ts: number): string {
   return `${type}@${hhmm(ts)}`;
@@ -162,26 +154,13 @@ function makeEntry(
     updatedAt: ts,
   };
 }
+
 export interface GenerateRandomEntriesOptions {
   profile: UserProfile | null | undefined;
   month: Date;
   workplaceId?: string;
   until?: Date;
   existingEntries?: TimeEntry[];
-}
-
-function medianMinutes(values: number[]): number | null {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  const value =
-    sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
-  return Math.round(value / 15) * 15;
-}
-
-function minutesOfDay(ts: number): number {
-  const d = new Date(ts);
-  return d.getHours() * 60 + d.getMinutes();
 }
 
 export function generateRandomEntries({
@@ -218,7 +197,6 @@ export function generateRandomEntries({
   const limit = startOfDay(until).getTime();
 
   const realByDay = new Map<string, Partial<Record<GeneratedType, TimeEntry>>>();
-  const realByType = new Map<GeneratedType, number[]>();
   for (const entry of existingEntries) {
     if (entry.isDeleted) continue;
     const type = entry.entryType as GeneratedType;
@@ -230,23 +208,34 @@ export function generateRandomEntries({
     const current = day[type];
     if (!current || entry.entryDatetime < current.entryDatetime) day[type] = entry;
     realByDay.set(key, day);
-    realByType.set(type, [...(realByType.get(type) ?? []), minutesOfDay(entry.entryDatetime)]);
   }
 
-  function baseMinutesFor(type: GeneratedType, profileValue: string): number {
+  function profileMinutes(profileValue: string): number {
     const [h, m] = parseClock(profileValue);
-    const fromProfile = h * 60 + m;
-    const samples = realByType.get(type) ?? [];
-    if (samples.length < 3) return fromProfile;
-    const median = medianMinutes(samples);
-    if (median === null) return fromProfile;
-    return Math.abs(median - fromProfile) > 20 ? median : fromProfile;
+    return h * 60 + m;
   }
 
-  const baseStartMin = baseMinutesFor("entrada", profile.workStartTime!);
-  const baseLunchStartMin = baseMinutesFor("saida_almoco", profile.lunchStartTime!);
-  const baseLunchEndMin = baseMinutesFor("volta_almoco", profile.lunchEndTime!);
-  const baseEndMin = profile.workEndTime ? baseMinutesFor("saida", profile.workEndTime) : null;
+  const workStartTime = profile.workStartTime;
+  const lunchStartTime = profile.lunchStartTime;
+  const lunchEndTime = profile.lunchEndTime;
+  if (!workStartTime || !lunchStartTime || !lunchEndTime) {
+    throw new Error('Configure todos os horários do expediente em "Ajustes".');
+  }
+
+  const baseStartMin = profileMinutes(workStartTime);
+  const baseLunchStartMin = profileMinutes(lunchStartTime);
+  const baseLunchEndMin = profileMinutes(lunchEndTime);
+  const expectedWorkMinutes = Math.round(profile.dailyExpectedHours * 60);
+  const lunchMinutes = baseLunchEndMin - baseLunchStartMin;
+  const configuredEndMin = profile.workEndTime ? profileMinutes(profile.workEndTime) : null;
+  const configuredWorkMinutes = configuredEndMin === null
+    ? null
+    : baseLunchStartMin - baseStartMin + configuredEndMin - baseLunchEndMin;
+
+  const baseEndMin = configuredEndMin !== null && configuredWorkMinutes !== null
+    && Math.abs(configuredWorkMinutes - expectedWorkMinutes) <= 30
+    ? configuredEndMin
+    : baseStartMin + expectedWorkMinutes + lunchMinutes;
 
   const atMinutes = (date: Date, minutes: number): number => {
     const d = startOfDay(date);
@@ -293,15 +282,7 @@ export function generateRandomEntries({
         const start = atMinutes(date, baseStartMin);
         const lunchStart = atMinutes(date, baseLunchStartMin);
         const lunchEnd = atMinutes(date, baseLunchEndMin);
-        let end: number;
-        if (baseEndMin !== null) {
-          end = atMinutes(date, baseEndMin);
-        } else {
-          const expectedWorkMinutes = Math.round(profile.dailyExpectedHours * 60);
-          const lunchMinutes = Math.max(0, (lunchEnd - lunchStart) / 60000);
-          end = start + (expectedWorkMinutes + lunchMinutes) * 60000;
-        }
-        const baseWorked = (lunchStart - start + (end - lunchEnd)) / 60000;
+        const end = atMinutes(date, baseEndMin);
         attemptUsage.usedRoundRecently = false;
         const saidaTarget = Math.min(20, Math.max(2, Math.round(perDayTarget) + randomInt(-3, 3)));
         const realDay = realByDay.get(ymd(date)) ?? {};
@@ -314,7 +295,7 @@ export function generateRandomEntries({
           buildDay(
             date,
             { entrada: start, saida_almoco: lunchStart, volta_almoco: lunchEnd, saida: end },
-            baseWorked,
+            expectedWorkMinutes,
             attemptUsage,
             maxRepeats,
             saidaTarget,
