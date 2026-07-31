@@ -204,6 +204,7 @@ function HistoricoPage() {
         profile,
         month: viewMonth,
         workplaceId: profile?.mainWorkplaceId ?? workplaces[0]?.id ?? "",
+        existingEntries: entries,
         until: ym(viewMonth) === currentMonthKey ? new Date() : new Date(
           viewMonth.getFullYear(),
           viewMonth.getMonth() + 1,

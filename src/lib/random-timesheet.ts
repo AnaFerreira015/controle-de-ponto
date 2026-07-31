@@ -1,5 +1,5 @@
 import type { EntryType, TimeEntry, UserProfile } from "@/lib/types";
-import { isWeekend, startOfDay } from "@/lib/time-utils";
+import { isWeekend, startOfDay, ymd } from "@/lib/time-utils";
 
 type GeneratedType = Extract<EntryType, "entrada" | "saida_almoco" | "volta_almoco" | "saida">;
 
@@ -50,6 +50,7 @@ interface Usage {
 
 const COOLDOWN_DAYS = 4;
 
+
 function keyOf(type: GeneratedType, ts: number): string {
   return `${type}@${hhmm(ts)}`;
 }
@@ -57,6 +58,7 @@ function keyOf(type: GeneratedType, ts: number): string {
 interface DayPlan {
   date: Date;
   times: Record<GeneratedType, number>;
+  fixedTypes: Set<GeneratedType>;
   extraMinutes: number;
 }
 
@@ -67,12 +69,23 @@ function buildDay(
   usage: Usage,
   maxRepeats: number,
   saidaTarget: number,
+  fixed: Partial<Record<GeneratedType, number>> = {},
 ): DayPlan {
   const times = {} as Record<GeneratedType, number>;
   const usedOffsets = new Set<number>();
+  const fixedTypes = new Set<GeneratedType>();
 
   for (const type of TYPES) {
     const recent = usage.last.get(type) ?? [];
+
+    const fixedTs = fixed[type];
+    if (fixedTs !== undefined) {
+      times[type] = fixedTs;
+      fixedTypes.add(type);
+      usage.counts.set(keyOf(type, fixedTs), (usage.counts.get(keyOf(type, fixedTs)) ?? 0) + 1);
+      usage.last.set(type, [...recent, hhmm(fixedTs)].slice(-COOLDOWN_DAYS));
+      continue;
+    }
 
     let candidates = OFFSETS[type]
       .map((offset) => {
@@ -115,9 +128,10 @@ function buildDay(
     usage.last.set(type, [...recent, hhmm(ts)].slice(-COOLDOWN_DAYS));
   }
 
-  const worked = (times.saida_almoco - times.entrada + (times.saida - times.volta_almoco)) / 60000;
+  const worked =
+    (times.saida_almoco - times.entrada + (times.saida - times.volta_almoco)) / 60000;
 
-  return { date, times, extraMinutes: Math.round(worked - baseWorkedMinutes) };
+  return { date, times, fixedTypes, extraMinutes: Math.round(worked - baseWorkedMinutes) };
 }
 
 function cloneUsage(u: Usage): Usage {
@@ -148,12 +162,26 @@ function makeEntry(
     updatedAt: ts,
   };
 }
-
 export interface GenerateRandomEntriesOptions {
   profile: UserProfile | null | undefined;
   month: Date;
   workplaceId?: string;
   until?: Date;
+  existingEntries?: TimeEntry[];
+}
+
+function medianMinutes(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const value =
+    sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+  return Math.round(value / 15) * 15;
+}
+
+function minutesOfDay(ts: number): number {
+  const d = new Date(ts);
+  return d.getHours() * 60 + d.getMinutes();
 }
 
 export function generateRandomEntries({
@@ -161,6 +189,7 @@ export function generateRandomEntries({
   month,
   workplaceId = "",
   until = new Date(),
+  existingEntries = [],
 }: GenerateRandomEntriesOptions): TimeEntry[] {
   if (!profile) {
     throw new Error("Você precisa estar logado para usar esta função.");
@@ -172,8 +201,7 @@ export function generateRandomEntries({
   if (!profile.lunchEndTime) missing.push("horário de volta do almoço");
 
   const hasEndTime = Boolean(profile.workEndTime);
-  const hasDailyHours =
-    Number.isFinite(profile.dailyExpectedHours) && profile.dailyExpectedHours > 0;
+  const hasDailyHours = Number.isFinite(profile.dailyExpectedHours) && profile.dailyExpectedHours > 0;
   if (!hasEndTime && !hasDailyHours) {
     missing.push("horário de saída (ou carga horária diária)");
   }
@@ -189,12 +217,50 @@ export function generateRandomEntries({
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const limit = startOfDay(until).getTime();
 
+  const realByDay = new Map<string, Partial<Record<GeneratedType, TimeEntry>>>();
+  const realByType = new Map<GeneratedType, number[]>();
+  for (const entry of existingEntries) {
+    if (entry.isDeleted) continue;
+    const type = entry.entryType as GeneratedType;
+    if (!TYPES.includes(type)) continue;
+    const d = new Date(entry.entryDatetime);
+    if (d.getFullYear() !== year || d.getMonth() !== monthIndex) continue;
+    const key = ymd(d);
+    const day = realByDay.get(key) ?? {};
+    const current = day[type];
+    if (!current || entry.entryDatetime < current.entryDatetime) day[type] = entry;
+    realByDay.set(key, day);
+    realByType.set(type, [...(realByType.get(type) ?? []), minutesOfDay(entry.entryDatetime)]);
+  }
+
+  function baseMinutesFor(type: GeneratedType, profileValue: string): number {
+    const [h, m] = parseClock(profileValue);
+    const fromProfile = h * 60 + m;
+    const samples = realByType.get(type) ?? [];
+    if (samples.length < 3) return fromProfile;
+    const median = medianMinutes(samples);
+    if (median === null) return fromProfile;
+    return Math.abs(median - fromProfile) > 20 ? median : fromProfile;
+  }
+
+  const baseStartMin = baseMinutesFor("entrada", profile.workStartTime!);
+  const baseLunchStartMin = baseMinutesFor("saida_almoco", profile.lunchStartTime!);
+  const baseLunchEndMin = baseMinutesFor("volta_almoco", profile.lunchEndTime!);
+  const baseEndMin = profile.workEndTime ? baseMinutesFor("saida", profile.workEndTime) : null;
+
+  const atMinutes = (date: Date, minutes: number): number => {
+    const d = startOfDay(date);
+    d.setMinutes(minutes);
+    return d.getTime();
+  };
+
   const weeks: Date[][] = [];
   let currentWeekKey = -1;
   for (let day = 1; day <= daysInMonth; day++) {
     const date = new Date(year, monthIndex, day);
-    if (isWeekend(date)) continue;
-    if (startOfDay(date).getTime() > limit) break;
+    const hasReal = realByDay.has(ymd(date));
+    if (isWeekend(date) && !hasReal) continue;
+    if (startOfDay(date).getTime() > limit && !hasReal) continue;
     const monday = startOfDay(date);
     monday.setDate(monday.getDate() - ((date.getDay() + 6) % 7));
     const key = monday.getTime();
@@ -224,12 +290,12 @@ export function generateRandomEntries({
       const plans: DayPlan[] = [];
 
       for (const date of weekDays) {
-        const start = timeOnDate(date, profile.workStartTime!);
-        const lunchStart = timeOnDate(date, profile.lunchStartTime!);
-        const lunchEnd = timeOnDate(date, profile.lunchEndTime!);
+        const start = atMinutes(date, baseStartMin);
+        const lunchStart = atMinutes(date, baseLunchStartMin);
+        const lunchEnd = atMinutes(date, baseLunchEndMin);
         let end: number;
-        if (profile.workEndTime) {
-          end = timeOnDate(date, profile.workEndTime);
+        if (baseEndMin !== null) {
+          end = atMinutes(date, baseEndMin);
         } else {
           const expectedWorkMinutes = Math.round(profile.dailyExpectedHours * 60);
           const lunchMinutes = Math.max(0, (lunchEnd - lunchStart) / 60000);
@@ -238,6 +304,12 @@ export function generateRandomEntries({
         const baseWorked = (lunchStart - start + (end - lunchEnd)) / 60000;
         attemptUsage.usedRoundRecently = false;
         const saidaTarget = Math.min(20, Math.max(2, Math.round(perDayTarget) + randomInt(-3, 3)));
+        const realDay = realByDay.get(ymd(date)) ?? {};
+        const fixed: Partial<Record<GeneratedType, number>> = {};
+        for (const type of TYPES) {
+          const real = realDay[type];
+          if (real) fixed[type] = real.entryDatetime;
+        }
         plans.push(
           buildDay(
             date,
@@ -246,6 +318,7 @@ export function generateRandomEntries({
             attemptUsage,
             maxRepeats,
             saidaTarget,
+            fixed,
           ),
         );
       }
@@ -259,6 +332,7 @@ export function generateRandomEntries({
       if (!best || Math.abs(total - weekTarget) < Math.abs(best.total - weekTarget)) {
         best = { plans, usage: attemptUsage, total };
       }
+
     }
 
     if (!best) continue;
@@ -266,8 +340,15 @@ export function generateRandomEntries({
     usage = best.usage;
 
     for (const plan of best.plans) {
+      const realDay = realByDay.get(ymd(plan.date)) ?? {};
       let previous = -Infinity;
       TYPES.forEach((type, index) => {
+        const real = realDay[type];
+        if (real) {
+          previous = Math.max(previous, real.entryDatetime);
+          entries.push(real);
+          return;
+        }
         let ts = plan.times[type];
         if (ts <= previous) ts = previous + randomInt(60, 180) * 1000;
         previous = ts;
@@ -276,5 +357,5 @@ export function generateRandomEntries({
     }
   }
 
-  return entries;
+  return entries.sort((a, b) => a.entryDatetime - b.entryDatetime);
 }
