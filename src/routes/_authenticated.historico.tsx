@@ -291,7 +291,7 @@ function HistoricoPage() {
               <Label htmlFor="history-month" className="sr-only">
                 Escolher mês
               </Label>
-              <div className="relative w-full min-w-0 max-w-full sm:w-[12rem]">
+              <div className="relative w-full min-w-0 max-w-full sm:w-48">
                 <CalendarDays className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Select value={viewMonthKey} onValueChange={selectMonth}>
                   <SelectTrigger
@@ -372,10 +372,8 @@ function HistoricoPage() {
               <Shuffle className="h-4 w-4 mr-1" />
               {generatingRandomPdf ? "Gerando..." : "Folha aleatória (PDF)"}
             </Button>
-
           </div>
         </div>
-
       </div>
 
       <Card className="border border-white/10 bg-gradient-primary text-white shadow-elevated">
@@ -473,7 +471,7 @@ function HistoricoPage() {
                         >
                           <div className="space-y-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-mono tabular-nums w-[5.5rem] font-medium">
+                              <span className="font-mono tabular-nums w-22 font-medium">
                                 {formatTime(e.entryDatetime)}
                               </span>
                               <span className="font-medium">{ENTRY_TYPE_LABELS[e.entryType]}</span>
