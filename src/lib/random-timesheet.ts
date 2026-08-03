@@ -120,8 +120,7 @@ function buildDay(
     usage.last.set(type, [...recent, hhmm(ts)].slice(-COOLDOWN_DAYS));
   }
 
-  const worked =
-    (times.saida_almoco - times.entrada + (times.saida - times.volta_almoco)) / 60000;
+  const worked = (times.saida_almoco - times.entrada + (times.saida - times.volta_almoco)) / 60000;
 
   return { date, times, fixedTypes, extraMinutes: Math.round(worked - baseWorkedMinutes) };
 }
@@ -180,7 +179,8 @@ export function generateRandomEntries({
   if (!profile.lunchEndTime) missing.push("horário de volta do almoço");
 
   const hasEndTime = Boolean(profile.workEndTime);
-  const hasDailyHours = Number.isFinite(profile.dailyExpectedHours) && profile.dailyExpectedHours > 0;
+  const hasDailyHours =
+    Number.isFinite(profile.dailyExpectedHours) && profile.dailyExpectedHours > 0;
   if (!hasEndTime && !hasDailyHours) {
     missing.push("horário de saída (ou carga horária diária)");
   }
@@ -228,14 +228,17 @@ export function generateRandomEntries({
   const expectedWorkMinutes = Math.round(profile.dailyExpectedHours * 60);
   const lunchMinutes = baseLunchEndMin - baseLunchStartMin;
   const configuredEndMin = profile.workEndTime ? profileMinutes(profile.workEndTime) : null;
-  const configuredWorkMinutes = configuredEndMin === null
-    ? null
-    : baseLunchStartMin - baseStartMin + configuredEndMin - baseLunchEndMin;
+  const configuredWorkMinutes =
+    configuredEndMin === null
+      ? null
+      : baseLunchStartMin - baseStartMin + configuredEndMin - baseLunchEndMin;
 
-  const baseEndMin = configuredEndMin !== null && configuredWorkMinutes !== null
-    && Math.abs(configuredWorkMinutes - expectedWorkMinutes) <= 30
-    ? configuredEndMin
-    : baseStartMin + expectedWorkMinutes + lunchMinutes;
+  const baseEndMin =
+    configuredEndMin !== null &&
+    configuredWorkMinutes !== null &&
+    Math.abs(configuredWorkMinutes - expectedWorkMinutes) <= 30
+      ? configuredEndMin
+      : baseStartMin + expectedWorkMinutes + lunchMinutes;
 
   const atMinutes = (date: Date, minutes: number): number => {
     const d = startOfDay(date);
@@ -313,7 +316,6 @@ export function generateRandomEntries({
       if (!best || Math.abs(total - weekTarget) < Math.abs(best.total - weekTarget)) {
         best = { plans, usage: attemptUsage, total };
       }
-
     }
 
     if (!best) continue;
