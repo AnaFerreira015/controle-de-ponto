@@ -373,8 +373,6 @@ function HistoricoPage() {
               {generatingRandomPdf ? "Gerando..." : "Folha aleatória (PDF)"}
             </Button>
 
-
-
           </div>
         </div>
 
