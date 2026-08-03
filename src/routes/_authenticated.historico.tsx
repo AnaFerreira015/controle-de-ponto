@@ -46,6 +46,7 @@ import {
   FileText,
   Pencil,
   Shuffle,
+
   Trash2,
 } from "lucide-react";
 
@@ -57,7 +58,8 @@ export const Route = createFileRoute("/_authenticated/historico")({
 });
 
 function HistoricoPage() {
-  const { profile, workplaces, entries, entryMonthKeys, viewMonth, setViewMonth } = useAppData();
+  const { user } = useAuth();
+  const { profile, workplaces, entries, entryMonthKeys, error, viewMonth, setViewMonth } = useAppData();
   const [editing, setEditing] = useState<TimeEntry | null>(null);
 
   const workplaceNames = useMemo(
@@ -71,17 +73,23 @@ function HistoricoPage() {
   const availableOrCurrentMonths = useMemo(() => {
     const values = new Set(availableMonths);
     values.add(currentMonthKey);
+    values.add(viewMonthKey);
+    // sempre oferecer os últimos 12 meses para navegação
+    const base = new Date();
+    for (let i = 0; i < 12; i++) {
+      values.add(ym(new Date(base.getFullYear(), base.getMonth() - i, 1)));
+    }
     return Array.from(values).sort();
-  }, [availableMonths, currentMonthKey]);
+  }, [availableMonths, currentMonthKey, viewMonthKey]);
 
   const previousMonthKey = useMemo(
-    () => [...availableMonths].reverse().find((key) => key < viewMonthKey) ?? null,
-    [availableMonths, viewMonthKey],
+    () => ym(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1)),
+    [viewMonth],
   );
-  const nextMonthKey = useMemo(
-    () => availableMonths.find((key) => key > viewMonthKey) ?? null,
-    [availableMonths, viewMonthKey],
-  );
+  const nextMonthKey = useMemo(() => {
+    const next = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1);
+    return ym(next) > currentMonthKey ? null : ym(next);
+  }, [viewMonth, currentMonthKey]);
 
   const days = useMemo(() => {
     const map = new Map<string, TimeEntry[]>();
@@ -140,14 +148,9 @@ function HistoricoPage() {
 
   function selectMonth(monthKey: string) {
     if (!monthKey) return;
-    if (monthKey !== currentMonthKey && !availableMonths.includes(monthKey)) {
-      toast.info(
-        "Não há registros nesse mês. O histórico mantém apenas meses com dados ou o mês atual.",
-      );
-      return;
-    }
     setMonthFromKey(monthKey);
   }
+
 
   function exportCsv() {
     const csv = entriesToCsv(entries, workplaceNames);
@@ -234,9 +237,22 @@ function HistoricoPage() {
     }
   }
 
+
+
+
   return (
     <div className="space-y-5">
+      {error && (
+        <div
+          role="alert"
+          className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive-foreground"
+        >
+          <p className="font-semibold text-destructive">Não foi possível carregar os pontos</p>
+          <p className="mt-1 text-foreground">{error}</p>
+        </div>
+      )}
       <div className="space-y-4">
+
         <div>
           <p className="text-xs uppercase tracking-widest text-muted-foreground">Histórico</p>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-1">
@@ -251,7 +267,7 @@ function HistoricoPage() {
               size="icon"
               onClick={() => previousMonthKey && setMonthFromKey(previousMonthKey)}
               disabled={!previousMonthKey}
-              aria-label="Ir para o mês anterior com registros"
+              aria-label="Ir para o mês anterior"
               className="rounded-full shrink-0"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -264,7 +280,7 @@ function HistoricoPage() {
               size="icon"
               onClick={() => nextMonthKey && setMonthFromKey(nextMonthKey)}
               disabled={!nextMonthKey}
-              aria-label="Ir para o próximo mês com registros"
+              aria-label="Ir para o próximo mês"
               className="rounded-full shrink-0"
             >
               <ChevronRight className="h-4 w-4" />
@@ -357,6 +373,8 @@ function HistoricoPage() {
               {generatingRandomPdf ? "Gerando..." : "Folha aleatória (PDF)"}
             </Button>
 
+
+
           </div>
         </div>
 
@@ -397,12 +415,27 @@ function HistoricoPage() {
 
       {days.length === 0 ? (
         <Card className="shadow-elegant">
-          <CardContent className="p-10 text-center text-muted-foreground">
+          <CardContent className="p-8 text-center text-muted-foreground">
             <CalendarDays className="mx-auto h-8 w-8 mb-3 opacity-50" />
-            Nenhum registro neste mês.
+            <p>Nenhum registro neste mês.</p>
+            <div className="mx-auto mt-5 max-w-md rounded-xl border border-border/70 bg-muted/40 p-4 text-left text-xs">
+              <p className="font-semibold text-foreground">Diagnóstico da conta</p>
+              <p className="mt-1 break-all">
+                Conta: {user?.email ?? "—"} (ID: {user?.uid ?? "—"})
+              </p>
+              <p className="mt-1">
+                Meses com registros nesta conta:{" "}
+                {availableMonths.length > 0 ? availableMonths.join(", ") : "nenhum"}
+              </p>
+              <p className="mt-2 text-muted-foreground">
+                Se a lista acima estiver vazia, os pontos foram gravados em outra conta (por
+                exemplo, login com Google criou um usuário diferente do login por e-mail).
+              </p>
+            </div>
           </CardContent>
         </Card>
       ) : (
+
         <div className="space-y-3">
           {days.map(([key, list]) => {
             const dayCalc = calculateWorkedMinutes(list);

@@ -171,6 +171,7 @@ export function subscribeEntriesInRange(
   fromMs: number,
   toMs: number,
   cb: (list: TimeEntry[]) => void,
+  onError?: (error: Error) => void,
 ): Unsubscribe {
   const col = collection(getDb(), "users", uid, "timeEntries");
   const q = query(
@@ -179,26 +180,41 @@ export function subscribeEntriesInRange(
     where("entryDatetime", "<=", toMs),
     orderBy("entryDatetime", "asc"),
   );
-  return onSnapshot(q, (snap) => {
-    cb(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<TimeEntry, "id">) })));
-  });
+  return onSnapshot(
+    q,
+    (snap) => {
+      cb(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<TimeEntry, "id">) })));
+    },
+    (error) => {
+      console.error("[firestore] subscribeEntriesInRange", error);
+      onError?.(error);
+    },
+  );
 }
 
 export function subscribeEntryMonths(
   uid: string,
   cb: (monthKeys: string[]) => void,
+  onError?: (error: Error) => void,
 ): Unsubscribe {
   const col = collection(getDb(), "users", uid, "timeEntries");
-  return onSnapshot(query(col, orderBy("entryDatetime", "asc")), (snap) => {
-    const months = new Set<string>();
-    snap.docs.forEach((d) => {
-      const data = d.data() as Omit<TimeEntry, "id">;
-      if (!data.isDeleted && Number.isFinite(data.entryDatetime)) {
-        months.add(monthKeyFromMs(data.entryDatetime));
-      }
-    });
-    cb(Array.from(months).sort());
-  });
+  return onSnapshot(
+    query(col, orderBy("entryDatetime", "asc")),
+    (snap) => {
+      const months = new Set<string>();
+      snap.docs.forEach((d) => {
+        const data = d.data() as Omit<TimeEntry, "id">;
+        if (!data.isDeleted && Number.isFinite(data.entryDatetime)) {
+          months.add(monthKeyFromMs(data.entryDatetime));
+        }
+      });
+      cb(Array.from(months).sort());
+    },
+    (error) => {
+      console.error("[firestore] subscribeEntryMonths", error);
+      onError?.(error);
+    },
+  );
 }
 
 export async function createTimeEntry(

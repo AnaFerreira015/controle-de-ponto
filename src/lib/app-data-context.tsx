@@ -15,6 +15,7 @@ interface AppData {
   entries: TimeEntry[]; // current month + previous/next month window? for now: current month
   entryMonthKeys: string[];
   loading: boolean;
+  error: string | null;
   viewMonth: Date;
   setViewMonth: (d: Date) => void;
 }
@@ -31,6 +32,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingEntries, setLoadingEntries] = useState(true);
   const [loadingMonths, setLoadingMonths] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -39,10 +41,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setLoadingProfile(false);
     });
     const unsubW = subscribeWorkplaces(user.uid, setWorkplaces);
-    const unsubM = subscribeEntryMonths(user.uid, (months) => {
-      setEntryMonthKeys(months);
-      setLoadingMonths(false);
-    });
+    const unsubM = subscribeEntryMonths(
+      user.uid,
+      (months) => {
+        setEntryMonthKeys(months);
+        setLoadingMonths(false);
+      },
+      (err) => {
+        setLoadingMonths(false);
+        setError(`Não foi possível carregar os meses com registros (${err.message}).`);
+      },
+    );
     return () => {
       unsubP();
       unsubW();
@@ -50,34 +59,26 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
-  useEffect(() => {
-    if (loadingMonths) return;
-    const currentMonthKey = ym(new Date());
-    const viewedMonthKey = ym(viewMonth);
-
-    if (entryMonthKeys.length === 0 && viewedMonthKey !== currentMonthKey) {
-      setViewMonth(new Date());
-      return;
-    }
-
-    if (
-      entryMonthKeys.length > 0 &&
-      viewedMonthKey !== currentMonthKey &&
-      !entryMonthKeys.includes(viewedMonthKey)
-    ) {
-      setViewMonth(new Date());
-    }
-  }, [entryMonthKeys, loadingMonths, viewMonth]);
 
   useEffect(() => {
     if (!user) return;
     setLoadingEntries(true);
+    setError(null);
     const from = startOfMonth(viewMonth).getTime();
     const to = endOfMonth(viewMonth).getTime();
-    const unsub = subscribeEntriesInRange(user.uid, from, to, (list) => {
-      setEntries(list);
-      setLoadingEntries(false);
-    });
+    const unsub = subscribeEntriesInRange(
+      user.uid,
+      from,
+      to,
+      (list) => {
+        setEntries(list);
+        setLoadingEntries(false);
+      },
+      (err) => {
+        setLoadingEntries(false);
+        setError(`Não foi possível carregar os pontos deste mês (${err.message}).`);
+      },
+    );
     return unsub;
   }, [user, viewMonth]);
 
@@ -88,10 +89,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       entries,
       entryMonthKeys,
       loading: loadingProfile || loadingEntries || loadingMonths,
+      error,
       viewMonth,
       setViewMonth,
     }),
-    [profile, workplaces, entries, entryMonthKeys, loadingProfile, loadingEntries, loadingMonths, viewMonth],
+    [profile, workplaces, entries, entryMonthKeys, loadingProfile, loadingEntries, loadingMonths, error, viewMonth],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
