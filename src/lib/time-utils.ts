@@ -192,9 +192,53 @@ export function isWeekend(date: Date): boolean {
   return day === 0 || day === 6;
 }
 
+/** Calendário nacional brasileiro; pontos facultativos não dispensam expediente. */
+export function getNationalHoliday(date: Date): string | null {
+  const year = date.getFullYear();
+  const key = `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const fixed: Record<string, string> = {
+    "01-01": "Confraternização Universal",
+    "04-21": "Tiradentes",
+    "05-01": "Dia do Trabalho",
+    "09-07": "Independência do Brasil",
+    "10-12": "Nossa Senhora Aparecida",
+    "11-02": "Finados",
+    "11-15": "Proclamação da República",
+    "12-25": "Natal",
+  };
+  if (key === "11-20" && year >= 2024) return "Dia Nacional de Zumbi e da Consciência Negra";
+  if (fixed[key]) return fixed[key];
+
+  // Computus gregoriano: a Sexta-feira Santa ocorre dois dias antes da Páscoa.
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const easterMonth = Math.floor((h + l - 7 * m + 114) / 31);
+  const easterDay = ((h + l - 7 * m + 114) % 31) + 1;
+  const goodFriday = new Date(year, easterMonth - 1, easterDay - 2);
+  return ymd(date) === ymd(goodFriday) ? "Sexta-feira Santa" : null;
+}
+
+export function isBusinessDay(date: Date): boolean {
+  return !isWeekend(date) && getNationalHoliday(date) === null;
+}
+
+export function getExpectedWorkMinutes(profile: UserProfile | null | undefined, date: Date): number {
+  return isBusinessDay(date) ? (profile?.dailyExpectedHours ?? 8) * 60 : 0;
+}
+
 export function getExpectedPoints(profile: UserProfile | null | undefined, date: Date): ExpectedPoint[] {
-  // Finais de semana não têm pontos esperados (não geram atrasos nem lembretes).
-  if (isWeekend(date)) return [];
+  // Dias dispensados não geram pontos esperados, atrasos ou lembretes.
+  if (!isBusinessDay(date)) return [];
   const start = timeOnDate(date, profile?.workStartTime, DEFAULT_WORK_START);
   const lunchStart = timeOnDate(date, profile?.lunchStartTime, DEFAULT_LUNCH_START);
   const lunchEnd = timeOnDate(date, profile?.lunchEndTime, DEFAULT_LUNCH_END);
@@ -258,6 +302,9 @@ export function getDayPointStatus(
   date: Date,
   now: number = Date.now(),
 ): { label: string; variant: "default" | "secondary" | "destructive" | "outline" } {
+  if (!isBusinessDay(date)) {
+    return { label: getNationalHoliday(date) ?? "Fim de semana", variant: "secondary" };
+  }
   const dayStart = startOfDay(date).getTime();
   const todayStart = startOfDay(new Date(now)).getTime();
   const isPastDay = dayStart < todayStart;

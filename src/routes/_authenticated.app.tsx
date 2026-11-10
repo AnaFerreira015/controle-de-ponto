@@ -43,6 +43,7 @@ import {
   formatMinutes,
   formatTime,
   getDayPointStatus,
+  getExpectedWorkMinutes,
   getDuePointReminder,
   getEntryStatus,
   getLastEntryType,
@@ -166,7 +167,7 @@ function AppMain() {
     localStorage.setItem(storageKey, key);
   }, [dueReminder, notificationPermission, now]);
 
-  const expectedMin = (profile?.dailyExpectedHours ?? 8) * 60;
+  const expectedMin = getExpectedWorkMinutes(profile, new Date(now));
   const dayDiff = dayCalc.minutes - expectedMin;
 
   const activeWorkplaces = workplaces.filter((w) => w.active && !w.isDeleted);
@@ -340,7 +341,9 @@ function AppMain() {
                 <p className="text-sm uppercase tracking-widest font-semibold text-white">
                   Bater ponto agora
                 </p>
-                <p className="text-white text-sm mt-1">Sugestão baseada no seu último registro.</p>
+                <p className="text-white text-sm mt-1">{expectedMin === 0
+                  ? "Hoje não há expediente previsto. Registre apenas se trabalhar neste dia."
+                  : "Sugestão baseada no seu último registro."}</p>
               </div>
               <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
                 <Clock3 className="h-5 w-5" />

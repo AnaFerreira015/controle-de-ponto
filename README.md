@@ -59,3 +59,21 @@ O app tem dois níveis de notificação:
 Para ativar push/offline real, configure `VITE_FIREBASE_VAPID_KEY` no `.env` e publique as regras atualizadas do Firestore. O app salva o token do dispositivo em `users/{uid}/notificationTokens`.
 
 Importante: para enviar lembretes automáticos com o app fechado, ainda é necessário um backend/agendador externo que envie mensagens FCM para os tokens salvos. O frontend já faz a inscrição do dispositivo e recebe mensagens em foreground/background.
+
+## Dias sem expediente
+
+Sábados, domingos e feriados do calendário nacional brasileiro não geram carga
+horária prevista, lembretes, pendências de jornada ou pontos na folha aleatória.
+O calendário inclui Sexta-feira Santa (calculada a cada ano) e 20 de novembro
+como feriado nacional a partir de 2024. Carnaval, Corpus Christi e outros pontos
+facultativos continuam como dias úteis; feriados estaduais e municipais não
+estão incluídos.
+
+Registros reais são preservados, inclusive na exportação. É possível registrar
+manualmente trabalho em dias dispensados; essas horas são contabilizadas sem
+carga horária obrigatória. A folha aleatória não completa registros nesses dias.
+As datas seguem o calendário local do navegador, como os demais registros.
+
+Referência do calendário: https://agenciagov.ebc.com.br/noticias/202512/confira-o-calendario-oficial-de-feriados-nacionais-e-pontos-facultativos-em-2026
+
+Para executar os testes de calendário: `npm test`.

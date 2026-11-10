@@ -16,7 +16,8 @@
     "cf:login": "wrangler login",
     "cf:deploy": "npm run build && wrangler deploy",
     "cf:dev": "npm run build && wrangler dev",
-    "cf:whoami": "wrangler whoami"
+    "cf:whoami": "wrangler whoami",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

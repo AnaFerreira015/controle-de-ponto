@@ -1,5 +1,5 @@
 import type { EntryType, TimeEntry, UserProfile } from "@/lib/types";
-import { isWeekend, startOfDay, ymd } from "@/lib/time-utils";
+import { isBusinessDay, startOfDay, ymd } from "@/lib/time-utils";
 
 type GeneratedType = Extract<EntryType, "entrada" | "saida_almoco" | "volta_almoco" | "saida">;
 
@@ -251,7 +251,7 @@ export function generateRandomEntries({
   for (let day = 1; day <= daysInMonth; day++) {
     const date = new Date(year, monthIndex, day);
     const hasReal = realByDay.has(ymd(date));
-    if (isWeekend(date) && !hasReal) continue;
+    if (!isBusinessDay(date)) continue;
     if (startOfDay(date).getTime() > limit && !hasReal) continue;
     const monday = startOfDay(date);
     monday.setDate(monday.getDate() - ((date.getDay() + 6) % 7));
@@ -265,7 +265,11 @@ export function generateRandomEntries({
 
   const usedWeekTotals = new Set<number>();
   let usage: Usage = { counts: new Map(), last: new Map(), usedRoundRecently: false };
-  const entries: TimeEntry[] = [];
+  // Preserva registros reais dos dias dispensados, sem completar a jornada deles.
+  const entries: TimeEntry[] = existingEntries.filter((entry) => {
+    const date = new Date(entry.entryDatetime);
+    return !entry.isDeleted && date.getFullYear() === year && date.getMonth() === monthIndex && !isBusinessDay(date);
+  });
 
   const totalWorkDays = weeks.reduce((sum, w) => sum + w.length, 0) || 1;
   const monthTargetExtra = randomInt(40, 190);
